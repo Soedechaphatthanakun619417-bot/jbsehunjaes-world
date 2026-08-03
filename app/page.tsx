@@ -9,7 +9,7 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff
+  Eye, EyeOff, Download
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -105,7 +105,9 @@ const TRANSLATIONS = {
     confirmRejectTitle: "Reject Request", rejectPlaceholder: "Reason for rejection...", 
     promptPwdTitle: "Change Password", promptPwdPlaceholder: "Enter new password...",
     oldPwd: "Old Password", newPwd: "New Password", confirmPwd: "Confirm Password", pwdMismatch: "Passwords do not match!", wrongOldPwd: "Old password is incorrect!",
-    choosePlatform: "Choose Platform", watchOn: "Watch on"
+    choosePlatform: "Choose Platform", watchOn: "Watch on",
+    downloadQR: "Download QR Code",
+    rememberMe: "Remember me for future logins"
   },
   mm: {
     loginBtn: "အကောင့်ဝင်ရန်", signUpBtn: "အကောင့်ဖွင့်ရန်", adminPanel: "Admin စာမျက်နှာ", logout: "အကောင့်မှထွက်ရန်", pts: "မှတ်",
@@ -141,7 +143,9 @@ const TRANSLATIONS = {
     confirmDelTitle: "သေချာပြီလား?", confirmDelDesc: "ဤအချက်အလက်ကို ဖျက်ပစ်မည်မှာ သေချာပါသလား? ဖျက်ပြီးပါက ပြန်ယူ၍မရပါ။",
     confirmRejectTitle: "ပယ်ချရသည့် အကြောင်းရင်း", rejectPlaceholder: "အကြောင်းပြချက်ကို ရေးပါ...", 
     oldPwd: "လက်ရှိ စကားဝှက်", newPwd: "စကားဝှက် အသစ်", confirmPwd: "စကားဝှက် အသစ် (အတည်ပြုရန်)", pwdMismatch: "စကားဝှက်များ မတူညီပါ!", wrongOldPwd: "လက်ရှိ စကားဝှက် မှားယွင်းနေပါသည်!",
-    choosePlatform: "ကြည့်ရှုမည့် နေရာကို ရွေးချယ်ပါ", watchOn: "ကြည့်ရှုရန် -"
+    choosePlatform: "ကြည့်ရှုမည့် နေရာကို ရွေးချယ်ပါ", watchOn: "ကြည့်ရှုရန် -",
+    downloadQR: "QR ကို ဒေါင်းလုဒ်လုပ်ရန်",
+    rememberMe: "နောက်တစ်ခါ ဝင်စရာမလိုအောင် မှတ်သားထားမည်"
   }
 };
 
@@ -193,6 +197,7 @@ export default function SweetieWorldApp() {
   const [showPwdOld, setShowPwdOld] = useState(false);
   const [showPwdNew, setShowPwdNew] = useState(false);
   const [showPwdConfirm, setShowPwdConfirm] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false); // New State for "Remember Me"
   
   // Password Change State
   const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
@@ -273,6 +278,19 @@ export default function SweetieWorldApp() {
     loadData();
   }, []);
 
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+
+  // --- Auto Login Check (Remember Me) ---
+  useEffect(() => {
+    if (isInitialLoad || users.length === 0) return;
+    const savedUser = localStorage.getItem('jbsehunjaes_auth');
+    if (savedUser && !currentUser) {
+      const found = users.find(u => u.username === savedUser);
+      if (found) setCurrentUser(found);
+      else localStorage.removeItem('jbsehunjaes_auth'); // Clean up if user is deleted
+    }
+  }, [isInitialLoad, users]);
+
   // --- Firebase Data Auto-Saving ---
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
@@ -284,8 +302,6 @@ export default function SweetieWorldApp() {
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
 
-  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
-  
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
@@ -340,6 +356,31 @@ export default function SweetieWorldApp() {
     showToast(t.msgCopied);
   };
 
+  const handleDownloadQR = async (url: string, providerName: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${providerName}_QR.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      showToast("QR Code Downloaded!");
+    } catch (error) {
+      // Fallback 
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${providerName}_QR.png`;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
   // Pagination UI Render Component
   const renderPagination = (currentPage: number, setPage: (p: number) => void, itemsPerPage: number, setItemsPerPage: (p: number) => void, totalItems: number) => {
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
@@ -372,6 +413,11 @@ export default function SweetieWorldApp() {
       const newUser: UserData = { ...authForm, role: 'user', points: 0, vip: false, unlockedShows: [] };
       setUsers([...users, newUser]);
       setCurrentUser(newUser);
+      
+      // Save Remember Me
+      if (rememberMe) localStorage.setItem('jbsehunjaes_auth', newUser.username);
+      else localStorage.removeItem('jbsehunjaes_auth');
+      
       showToast(t.msgSuccess);
       setAuthModalOpen(false);
       setAuthForm({ username: '', email: '', password: '' });
@@ -384,6 +430,11 @@ export default function SweetieWorldApp() {
       );
       if (user) {
         setCurrentUser(user);
+        
+        // Save Remember Me
+        if (rememberMe) localStorage.setItem('jbsehunjaes_auth', user.username);
+        else localStorage.removeItem('jbsehunjaes_auth');
+        
         showToast(t.msgLoginSucc);
         setAuthModalOpen(false);
         setAuthForm({ username: '', email: '', password: '' });
@@ -632,45 +683,49 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* --- USER PROFILE SLIDE MENU --- */}
+      {/* --- RE-SIZED USER PROFILE SLIDE MENU --- */}
       {userMenuOpen && currentUser && (
         <div className="fixed inset-0 z-[100] flex justify-end font-sans">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUserMenuOpen(false)} />
-          <div className="relative w-80 max-w-[80%] bg-[#5c0909] h-full shadow-2xl flex flex-col animate-slide-in border-l border-[#fcd385]/30">
-             <div className="flex justify-between items-center p-6 border-b border-[#fcd385]/20">
+          <div className="relative w-72 max-w-[75%] bg-[#5c0909] h-full shadow-2xl flex flex-col animate-slide-in border-l border-[#fcd385]/30">
+             <div className="flex justify-between items-center p-4 border-b border-[#fcd385]/20">
                 <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full border border-[#fcd385] flex items-center justify-center bg-black/30">
-                     <User className="w-5 h-5 text-[#fcd385]"/>
+                   <div className="w-8 h-8 rounded-full border border-[#fcd385] flex items-center justify-center bg-black/30">
+                     <User className="w-4 h-4 text-[#fcd385]"/>
                    </div>
-                   <h3 className="text-lg font-bold text-white uppercase tracking-wider">{currentUser.username}</h3>
+                   <h3 className="text-base font-bold text-white uppercase tracking-wider">{currentUser.username}</h3>
                 </div>
-                <button onClick={() => setUserMenuOpen(false)} className="text-white hover:text-[#fcd385] transition"><X className="w-6 h-6"/></button>
+                <button onClick={() => setUserMenuOpen(false)} className="text-white hover:text-[#fcd385] transition"><X className="w-5 h-5"/></button>
              </div>
-             <div className="p-6 bg-black/20 border-b border-[#fcd385]/10">
-                <p className="text-sm text-zinc-300 mb-1">{t.balance}</p>
-                <p className="text-3xl font-black text-[#fcd385]">Ks. {currentUser.points}</p>
+             <div className="p-4 bg-black/20 border-b border-[#fcd385]/10">
+                <p className="text-xs text-zinc-300 mb-1">{t.balance}</p>
+                <p className="text-2xl font-black text-[#fcd385]">Ks. {currentUser.points}</p>
              </div>
              <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                <button onClick={() => {setChangePwdModalOpen(true); setUserMenuOpen(false);}} className="w-full flex items-center justify-between p-4 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold">
-                  <div className="flex items-center gap-3"><Key className="w-5 h-5"/> {t.changePwd}</div>
+                <button onClick={() => {setChangePwdModalOpen(true); setUserMenuOpen(false);}} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
+                  <div className="flex items-center gap-3"><Key className="w-4 h-4"/> {t.changePwd}</div>
                   <ChevronRight className="w-4 h-4 text-white/50"/>
                 </button>
-                <button onClick={() => {setCurrentUser(null); setUserMenuOpen(false);}} className="w-full flex items-center justify-between p-4 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold">
-                  <div className="flex items-center gap-3"><LogOut className="w-5 h-5"/> {t.logout}</div>
+                <button onClick={() => {
+                  setCurrentUser(null);
+                  localStorage.removeItem('jbsehunjaes_auth'); // Logout တဲ့အခါ Remember Me ပါဖျက်မည်
+                  setUserMenuOpen(false);
+                }} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
+                  <div className="flex items-center gap-3"><LogOut className="w-4 h-4"/> {t.logout}</div>
                   <ChevronRight className="w-4 h-4 text-white/50"/>
                 </button>
 
-                <div className="mt-8 pt-4 border-t border-[#fcd385]/10">
-                  <h4 className="text-sm font-bold text-[#fcd385] mb-4">{t.contactUs}</h4>
-                  <div className="space-y-3">
-                    <a href={siteConfig.fbLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-black/20 hover:bg-[#1877F2]/20 rounded-xl transition text-white font-bold text-sm">
-                      <Globe className="w-5 h-5 text-[#1877F2]"/> Facebook
+                <div className="mt-6 pt-4 border-t border-[#fcd385]/10">
+                  <h4 className="text-xs font-bold text-[#fcd385] mb-3">{t.contactUs}</h4>
+                  <div className="space-y-2">
+                    <a href={siteConfig.fbLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#1877F2]/20 rounded-xl transition text-white font-bold text-sm">
+                      <Globe className="w-4 h-4 text-[#1877F2]"/> Facebook
                     </a>
-                    <a href={siteConfig.tgLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-black/20 hover:bg-[#0088cc]/20 rounded-xl transition text-white font-bold text-sm">
-                      <Send className="w-5 h-5 text-[#0088cc]"/> Telegram
+                    <a href={siteConfig.tgLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#0088cc]/20 rounded-xl transition text-white font-bold text-sm">
+                      <Send className="w-4 h-4 text-[#0088cc]"/> Telegram
                     </a>
-                    <a href={siteConfig.viberLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-black/20 hover:bg-[#7360f2]/20 rounded-xl transition text-white font-bold text-sm">
-                      <MessageCircle className="w-5 h-5 text-[#7360f2]"/> Viber
+                    <a href={siteConfig.viberLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#7360f2]/20 rounded-xl transition text-white font-bold text-sm">
+                      <MessageCircle className="w-4 h-4 text-[#7360f2]"/> Viber
                     </a>
                   </div>
                 </div>
@@ -1650,7 +1705,7 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* Auth Modal (With Eye Icon) */}
+      {/* Auth Modal (With Eye Icon and Remember Me) */}
       {authModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
           <div className="bg-gradient-to-b from-[#3e1717] via-[#2b0303] to-[#1a0101] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
@@ -1672,6 +1727,15 @@ export default function SweetieWorldApp() {
                   </button>
                 </div>
               )}
+              
+              {/* Remember Me Checkbox */}
+              {(authMode === 'login' || authMode === 'register') && (
+                <div className="flex items-center gap-2 mb-2">
+                  <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} className="w-4 h-4 cursor-pointer accent-[#fcd385] rounded border-zinc-700" />
+                  <label htmlFor="rememberMe" className="text-xs text-zinc-300 cursor-pointer select-none">{t.rememberMe}</label>
+                </div>
+              )}
+
               <button type="submit" className={`w-full font-black py-3 rounded-xl shadow-[0_4px_0_rgba(0,0,0,0.5)] active:shadow-none active:translate-y-1 transition-all tracking-wide ${
                 authMode === 'register' ? 'border border-[#fcd385] text-[#fcd385] bg-black/50' : 'bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717]'
               }`}>{authMode === 'login' ? t.loginBtn : authMode === 'register' ? t.signUpBtn : t.getpwd}</button>
@@ -1765,7 +1829,14 @@ export default function SweetieWorldApp() {
                        <p className="text-sm font-bold text-[#fcd385] mb-4">Scan QR to Pay with {selectedProvider.name}</p>
                        <img src={selectedProvider.qrImage || 'https://via.placeholder.com/200'} alt="QR Code" className="w-48 h-48 object-contain mx-auto rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.5)] border border-white/20" />
                        
-                       {/* New Account Number Section */}
+                       {/* QR Code Download Button */}
+                       <div className="mt-4 flex justify-center">
+                          <button type="button" onClick={() => handleDownloadQR(selectedProvider.qrImage, selectedProvider.name)} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-[#fcd385] px-4 py-2 rounded-lg transition shadow-lg text-xs font-bold border border-zinc-700">
+                            <Download className="w-4 h-4"/> {t.downloadQR}
+                          </button>
+                       </div>
+
+                       {/* Account Number Section */}
                        {selectedProvider.accountNo && (
                          <div className="mt-5 p-3 bg-[#1f1f1f] rounded-lg border border-[#fcd385]/20 flex items-center justify-between">
                             <div className="text-left">
