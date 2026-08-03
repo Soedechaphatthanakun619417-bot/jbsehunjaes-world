@@ -9,7 +9,7 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff, Download
+  Eye, EyeOff, Download, RefreshCw
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -290,6 +290,28 @@ export default function SweetieWorldApp() {
       else localStorage.removeItem('jbsehunjaes_auth'); // Clean up if user is deleted
     }
   }, [isInitialLoad, users]);
+
+  // --- Real-time Sync Helper (To get fresh data on demand instantly) ---
+  const syncLatestData = async () => {
+    try {
+      const pSnap = await getDoc(doc(db, "SiteData", "pointRequests"));
+      if (pSnap.exists() && pSnap.data().data) {
+         setPointRequests(prev => JSON.stringify(prev) !== JSON.stringify(pSnap.data().data) ? pSnap.data().data : prev);
+      }
+      const uSnap = await getDoc(doc(db, "SiteData", "users"));
+      if (uSnap.exists() && uSnap.data().data) {
+         const fetchedUsers = uSnap.data().data;
+         setUsers(prev => JSON.stringify(prev) !== JSON.stringify(fetchedUsers) ? fetchedUsers : prev);
+         setCurrentUser(prev => {
+            if (!prev) return prev;
+            const updated = fetchedUsers.find((u: UserData) => u.username === prev.username);
+            return (updated && JSON.stringify(prev) !== JSON.stringify(updated)) ? updated : prev;
+         });
+      }
+    } catch(e) {
+      console.error("Sync error:", e);
+    }
+  };
 
   // --- Firebase Data Auto-Saving ---
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
@@ -611,7 +633,7 @@ export default function SweetieWorldApp() {
                 <button onClick={() => {setActiveTab('faq'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'faq' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><HelpCircle className="w-5 h-5"/> {t.faq}</button>
                 
                 {currentUser?.role === 'admin' && (
-                  <button onClick={() => {setAdminDashboardOpen(true); setSidebarOpen(false);}} className="w-full mt-6 flex items-center gap-3 p-3 rounded-xl font-bold bg-red-900/50 text-red-200 border border-red-500/30 hover:bg-red-800 transition">
+                  <button onClick={() => {syncLatestData(); setAdminDashboardOpen(true); setSidebarOpen(false);}} className="w-full mt-6 flex items-center gap-3 p-3 rounded-xl font-bold bg-red-900/50 text-red-200 border border-red-500/30 hover:bg-red-800 transition">
                     <ShieldCheck className="w-5 h-5"/> {t.adminPanel}
                   </button>
                 )}
@@ -650,18 +672,18 @@ export default function SweetieWorldApp() {
           {currentUser ? (
             <div className="flex items-center gap-2 sm:gap-4 font-sans relative">
               {currentUser.role === 'admin' && (
-                <button onClick={() => setAdminDashboardOpen(true)} className="hidden sm:flex text-xs bg-gradient-to-r from-[#b30000] to-[#660000] hover:brightness-110 px-3 py-1.5 rounded-lg font-bold transition items-center gap-1 shadow-lg">
+                <button onClick={() => {syncLatestData(); setAdminDashboardOpen(true);}} className="hidden sm:flex text-xs bg-gradient-to-r from-[#b30000] to-[#660000] hover:brightness-110 px-3 py-1.5 rounded-lg font-bold transition items-center gap-1 shadow-lg">
                   <ShieldCheck className="w-4 h-4" /> Admin
                 </button>
               )}
               
               {/* BIGGER POINTS BUTTON */}
-              <button onClick={() => {setPayStep('menu'); setPointModalOpen(true);}} className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#2b0303] to-[#1a0101] border-2 border-[#fcd385] text-[#fcd385] px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm sm:text-base font-black shadow-[0_0_10px_rgba(252,211,133,0.3)] hover:brightness-110 transition shrink-0">
+              <button onClick={() => {syncLatestData(); setPayStep('menu'); setPointModalOpen(true);}} className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#2b0303] to-[#1a0101] border-2 border-[#fcd385] text-[#fcd385] px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm sm:text-base font-black shadow-[0_0_10px_rgba(252,211,133,0.3)] hover:brightness-110 transition shrink-0">
                 <Coins className="w-5 h-5 sm:w-5 sm:h-5 text-yellow-400" /> <span>{currentUser.points} {t.pts}</span>
               </button>
               
               {/* BIGGER USER PROFILE BUTTON */}
-              <div onClick={() => setUserMenuOpen(true)} className="cursor-pointer p-2 sm:p-2 bg-[#fcd385] rounded-full hover:bg-yellow-400 transition shadow-[0_0_10px_rgba(252,211,133,0.4)] border-2 border-[#d4af37] flex items-center justify-center shrink-0">
+              <div onClick={() => {syncLatestData(); setUserMenuOpen(true);}} className="cursor-pointer p-2 sm:p-2 bg-[#fcd385] rounded-full hover:bg-yellow-400 transition shadow-[0_0_10px_rgba(252,211,133,0.4)] border-2 border-[#d4af37] flex items-center justify-center shrink-0">
                  <User className="w-5 h-5 sm:w-5 sm:h-5 text-[#3e1717]" />
               </div>
             </div>
@@ -750,12 +772,12 @@ export default function SweetieWorldApp() {
                 <h2 className="text-[#ff9d9d] font-black text-lg flex items-center gap-2 mb-4"><LayoutDashboard className="w-5 h-5"/> {t.adminSystem}</h2>
              </div>
              <nav className="flex-1 py-4 flex flex-col gap-1 font-sans">
-                <button onClick={() => setAdminActiveTab('users')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'users' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Users className="w-5 h-5"/> {t.adminTabUsers}</button>
-                <button onClick={() => setAdminActiveTab('points')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'points' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}>
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('users')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'users' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Users className="w-5 h-5"/> {t.adminTabUsers}</button>
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('points')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'points' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}>
                   <div className="relative"><Bell className="w-5 h-5"/>{adminPendingPoints.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"/>}</div> 
                   {t.adminTabPoints}
                 </button>
-                <button onClick={() => setAdminActiveTab('history')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'history' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Clock className="w-5 h-5"/> {t.adminTabHistory}</button>
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('history')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'history' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Clock className="w-5 h-5"/> {t.adminTabHistory}</button>
                 <button onClick={() => setAdminActiveTab('settings')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'settings' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Settings className="w-5 h-5"/> {t.adminTabSettings}</button>
                 <button onClick={() => setAdminActiveTab('promo')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'promo' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Gift className="w-5 h-5"/> {t.adminTabPromo}</button>
                 <button onClick={() => setAdminActiveTab('upload')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'upload' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Upload className="w-5 h-5"/> {t.adminTabUpload}</button>
@@ -820,7 +842,12 @@ export default function SweetieWorldApp() {
 
             {adminActiveTab === 'points' && (
               <div className="animate-fade-in space-y-6">
-                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.pointReqs}</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.pointReqs}</h3>
+                  <button onClick={syncLatestData} className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-[#fcd385] px-3 py-2 rounded-lg transition shadow-lg border border-zinc-700">
+                      <RefreshCw className="w-4 h-4" /> Sync
+                  </button>
+                </div>
                 <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
                   <div className="space-y-3">
                     {adminFilteredPoints.length === 0 ? <p className="text-zinc-500 text-sm py-4">{t.noReqs}</p> : adminFilteredPoints.map(req => (
@@ -1780,7 +1807,7 @@ export default function SweetieWorldApp() {
                     </div>
                     <span className="text-white font-bold text-sm drop-shadow-md">{t.payMenuDeposit}</span>
                   </div>
-                  <div className="flex flex-col items-center gap-3 cursor-pointer group" onClick={() => setPayStep('history')}>
+                  <div className="flex flex-col items-center gap-3 cursor-pointer group" onClick={() => { syncLatestData(); setPayStep('history'); }}>
                     <div className="w-20 h-20 rounded-full border border-[#fcd385] bg-gradient-to-b from-[#2b0303] to-[#1a0101] flex items-center justify-center shadow-[0_4px_15px_rgba(252,211,133,0.3)] group-hover:scale-105 transition-all">
                       <Clock className="w-10 h-10 text-[#fcd385]" />
                     </div>
@@ -1876,7 +1903,13 @@ export default function SweetieWorldApp() {
               )}
 
               {payStep === 'history' && (
-                <div className="space-y-3 animate-fade-in">
+                <div className="space-y-3 animate-fade-in relative">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-[#fcd385] text-sm font-bold border-b border-white/10 pb-1">{t.payMenuHistory}</h4>
+                    <button onClick={syncLatestData} className="flex items-center gap-1.5 text-xs bg-black/50 border border-zinc-700 hover:border-[#fcd385] text-zinc-300 hover:text-[#fcd385] px-3 py-1.5 rounded-lg transition shadow">
+                      <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                    </button>
+                  </div>
                   {pointRequests.filter(r => r.username === currentUser?.username).length === 0 ? (
                      <p className="text-center text-white/50 text-sm py-10">No transaction history found.</p>
                   ) : (
