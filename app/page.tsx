@@ -350,6 +350,15 @@ export default function SweetieWorldApp() {
     }
   };
 
+  // --- AUTO SYNC EVERY 30 SECONDS (Polling Mechanism) ---
+  useEffect(() => {
+    if (isInitialLoad) return;
+    const interval = setInterval(() => {
+      syncLatestData();
+    }, 30000); // Every 30 seconds
+    return () => clearInterval(interval);
+  }, [isInitialLoad]);
+
   // --- Firebase Data Auto-Saving ---
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
