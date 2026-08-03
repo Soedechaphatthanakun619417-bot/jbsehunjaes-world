@@ -36,6 +36,7 @@ interface VideoCardData { id: string; title_en: string; title_mm: string; image:
 interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; }
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
+interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
 interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; fbLink: string; tgLink: string; viberLink: string; }
 interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit'; }
 interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
@@ -85,10 +86,10 @@ const TRANSLATIONS = {
     unlockAll: "Unlock All Episodes", unlockDesc: "Points are required to unlock all episodes of this series.", required: "Required:",
     balance: "Your Balance:", unlockBtn: "Deduct Points & Unlock", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
     adminTabUsers: "User Dashboard", adminTabPoints: "Point Requests", adminTabHistory: "Transaction History", 
-    adminTabSettings: "System Settings", adminTabPromo: "Promo & FAQ Manage", adminTabUpload: "Upload Movies / Series",
+    adminTabSettings: "System Settings", adminTabPromo: "Manage Promotions", adminTabFaq: "Manage FAQs", adminTabUpload: "Upload Movies / Series",
     adminTabLogs: "Action Logs",
     userMgmt: "User Management", searchUser: "Search Username or Email...", searchPoint: "Search Username or ID Code...",
-    createUser: "Create User", pointReqs: "Point Requests", managePromoFaq: "Manage Promotions & FAQs", addCat: "Add Category",
+    createUser: "Create User", pointReqs: "Point Requests", addCat: "Add Category",
     uploadVid: "Upload Movie / Series", genSlots: "Generate Slots", saveBtn: "Save Content", updateBtn: "Update Content",
     titleEnPlaceholder: "Title (English)", titleMmPlaceholder: "Title (Myanmar)", descPlaceholder: "Description / Body Content",
     imgPlaceholder: "Image URL", tgLinkPlaceholder: "VIP Telegram Link", qrLinkPlaceholder: "QR Image URL", totEps: "Total Episodes", newCatName: "New Category Name...",
@@ -125,10 +126,10 @@ const TRANSLATIONS = {
     unlockAll: "အပိုင်းအားလုံး ဖွင့်ရန်", unlockDesc: "ဒီဇာတ်ကားရဲ့ အပိုင်းအားလုံးကို VIP အနေနဲ့ကြည့်ရန် Points လိုအပ်ပါသည်။", required: "လိုအပ်သော Point:",
     balance: "သင့်လက်ကျန်:", unlockBtn: "Point ဖျက်၍ ဝင်မည်", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
     adminTabUsers: "အကောင့်ဖွင့်ထားသော User များ", adminTabPoints: "Point တောင်းဆိုမှုများ", adminTabHistory: "ငွေသွင်းမှတ်တမ်းများ", 
-    adminTabSettings: "စနစ် အပြင်အဆင်များ", adminTabPromo: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", adminTabUpload: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", 
+    adminTabSettings: "စနစ် အပြင်အဆင်များ", adminTabPromo: "ပရိုမိုးရှင်း စီမံရန်", adminTabFaq: "အမေးအဖြေ (FAQ) စီမံရန်", adminTabUpload: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", 
     adminTabLogs: "အက်ဒမင် စီမံမှု မှတ်တမ်းများ",
     userMgmt: "အသုံးပြုသူများ စီမံရန်", searchUser: "Username (သို့) Email ရှာရန်...", searchPoint: "Username သို့မဟုတ် ID Code ဖြင့်ရှာပါ...", 
-    createUser: "အကောင့်ဖွင့်ပေးရန်", pointReqs: "Point တောင်းဆိုမှုများ (Pending)", managePromoFaq: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", addCat: "အမျိုးအစား အသစ်ထည့်ရန်", 
+    createUser: "အကောင့်ဖွင့်ပေးရန်", pointReqs: "Point တောင်းဆိုမှုများ (Pending)", addCat: "အမျိုးအစား အသစ်ထည့်ရန်", 
     uploadVid: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", genSlots: "အပိုင်းများ ဖန်တီးရန်", saveBtn: "သိမ်းမည်", updateBtn: "ပြင်ဆင်မည်", titleEnPlaceholder: "ခေါင်းစဉ် (English)",
     titleMmPlaceholder: "ခေါင်းစဉ် (Myanmar)", descPlaceholder: "အကြောင်းအရာ စာသား (Body)", imgPlaceholder: "ပုံ Link",
     tgLinkPlaceholder: "VIP Telegram Link", qrLinkPlaceholder: "QR ပုံ Link ထည့်ပါ...", totEps: "စုစုပေါင်း အပိုင်း", newCatName: "အမျိုးအစား အမည်သစ်...", addBtn: "ထည့်မည်",
@@ -186,7 +187,7 @@ export default function SweetieWorldApp() {
   const [shows, setShows] = useState<VideoCardData[]>(INITIAL_SHOWS);
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
   const [platforms, setPlatforms] = useState<string[]>(INITIAL_PLATFORMS);
-  const [promotions, setPromotions] = useState<ContentItem[]>([]);
+  const [promotions, setPromotions] = useState<PromoItem[]>([]);
   const [faqs, setFaqs] = useState<ContentItem[]>([]);
   const [pointRequests, setPointRequests] = useState<PointRequest[]>([]);
   const [paymentProviders, setPaymentProviders] = useState(INITIAL_PROVIDERS);
@@ -208,7 +209,7 @@ export default function SweetieWorldApp() {
   const [showPwdOld, setShowPwdOld] = useState(false);
   const [showPwdNew, setShowPwdNew] = useState(false);
   const [showPwdConfirm, setShowPwdConfirm] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false); // New State for "Remember Me"
+  const [rememberMe, setRememberMe] = useState(false);
   
   // Password Change State
   const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
@@ -220,7 +221,7 @@ export default function SweetieWorldApp() {
   // Platform Selector Modal for multiple links
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
 
-  // Pagination States အသစ်များ
+  // Pagination States
   const [usersPage, setUsersPage] = useState(1);
   const [usersPerPage, setUsersPerPage] = useState(10);
   const [historyPage, setHistoryPage] = useState(1);
@@ -396,7 +397,8 @@ export default function SweetieWorldApp() {
   const [scheduleAlert, setScheduleAlert] = useState<{isOpen: boolean, date: string, show: VideoCardData} | null>(null);
   
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'upload'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('users');
+  
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminPointSearch, setAdminPointSearch] = useState('');
   const [adminHistorySearch, setAdminHistorySearch] = useState('');
@@ -408,12 +410,12 @@ export default function SweetieWorldApp() {
   const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
   const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
   const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
-  const [editUserRemark, setEditUserRemark] = useState(''); // New State for Admin Remark
+  const [editUserRemark, setEditUserRemark] = useState('');
 
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [editingShowId, setEditingShowId] = useState<string | null>(null);
-  const [newPromo, setNewPromo] = useState({ title_en: '', body_en: '', title_mm: '', body_mm: '' });
+  const [newPromo, setNewPromo] = useState<Partial<PromoItem>>({ title_en: '', body_en: '', title_mm: '', body_mm: '', image: '' });
   const [newFaq, setNewFaq] = useState({ title_en: '', body_en: '', title_mm: '', body_mm: '' });
   const [newVideo, setNewVideo] = useState<Partial<VideoCardData>>({ episodes: [], title_en: '', title_mm: '', pointsPerEp: 20 });
   const [epCount, setEpCount] = useState(1);
@@ -787,7 +789,7 @@ export default function SweetieWorldApp() {
                  
                  {/* NOTIFICATION DROPDOWN */}
                  {notiDropdownOpen && (
-                   <div className="absolute right-0 top-12 mt-1 w-[320px] max-h-[80vh] bg-[#1a1a1a] border border-[#fcd385]/30 shadow-2xl rounded-2xl z-[200] flex flex-col overflow-hidden animate-fade-in">
+                   <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-12 sm:mt-1 w-auto sm:w-[320px] max-h-[70vh] sm:max-h-[80vh] bg-[#1a1a1a] border border-[#fcd385]/30 shadow-2xl rounded-2xl z-[200] flex flex-col overflow-hidden animate-fade-in mx-auto">
                       <div className="p-4 border-b border-zinc-800 bg-[#161616] flex justify-between items-center">
                         <h4 className="font-bold text-[#fcd385] flex items-center gap-2"><Bell className="w-4 h-4"/> {t.notifications}</h4>
                         {myNotis.length > 0 && <button onClick={() => setNotifications(notifications.map(n => (n.targetUser === currentUser.username || (currentUser.role==='admin'&&n.targetUser==='admin')) ? {...n, isRead: true} : n))} className="text-[10px] text-zinc-400 hover:text-white transition">{t.markAllRead}</button>}
@@ -945,6 +947,7 @@ export default function SweetieWorldApp() {
 
                 <button onClick={() => setAdminActiveTab('settings')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'settings' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Settings className="w-5 h-5"/> {t.adminTabSettings}</button>
                 <button onClick={() => setAdminActiveTab('promo')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'promo' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Gift className="w-5 h-5"/> {t.adminTabPromo}</button>
+                <button onClick={() => setAdminActiveTab('faq')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'faq' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><HelpCircle className="w-5 h-5"/> {t.adminTabFaq}</button>
                 <button onClick={() => setAdminActiveTab('upload')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'upload' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Upload className="w-5 h-5"/> {t.adminTabUpload}</button>
               </nav>
           </aside>
@@ -1415,14 +1418,22 @@ export default function SweetieWorldApp() {
               </div>
             )}
 
+            {/* SEPARATED PROMOTIONS TAB */}
             {adminActiveTab === 'promo' && (
               <div className="animate-fade-in space-y-6">
-                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.managePromoFaq}</h3>
+                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabPromo}</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 font-sans">
                   {/* PROMO EDIT SECTION */}
                   <div>
                     <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 mb-4">
                       <h4 className="text-sm font-bold text-[#fcd385] mb-4 flex items-center gap-2"><Gift className="w-4 h-4"/> {editingPromoId ? "Edit Promotion" : "Add Promotion"}</h4>
+                      
+                      {/* ADDED IMAGE SUPPORT FOR PROMOTIONS */}
+                      <div className="mb-4">
+                        <label className="text-xs text-zinc-400 mb-2 block font-bold uppercase tracking-wider">Promotion Image URL (Optional)</label>
+                        <input type="text" placeholder="https://..." value={newPromo.image || ''} onChange={e => setNewPromo({...newPromo, image: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 text-sm text-white rounded-lg focus:border-[#fcd385] outline-none" />
+                      </div>
+
                       <div className="mb-4 p-3 bg-black/40 rounded-lg border border-zinc-700">
                         <label className="text-xs text-zinc-400 mb-2 block font-bold uppercase tracking-wider">English</label>
                         <input type="text" placeholder="Title (EN)" value={newPromo.title_en || ''} onChange={e => setNewPromo({...newPromo, title_en: e.target.value})} className="w-full mb-3 bg-black border border-zinc-700 p-3 text-sm text-white rounded-lg focus:border-[#fcd385] outline-none" />
@@ -1436,17 +1447,21 @@ export default function SweetieWorldApp() {
                       <div className="flex gap-2">
                         <button onClick={() => {
                           if (editingPromoId) {
-                            setPromotions(promotions.map(p => p.id === editingPromoId ? { ...newPromo, id: editingPromoId } : p));
+                            setPromotions(promotions.map(p => p.id === editingPromoId ? { ...newPromo, id: editingPromoId } as PromoItem : p));
                             setEditingPromoId(null);
                           } else {
-                            setPromotions([...promotions, {id: Date.now().toString(), ...newPromo}]); 
+                            setPromotions([...promotions, {id: Date.now().toString(), ...newPromo} as PromoItem]); 
                           }
-                          setNewPromo({title_en:'', body_en:'', title_mm:'', body_mm:''}); 
+                          setNewPromo({title_en:'', body_en:'', title_mm:'', body_mm:'', image: ''}); 
                           showToast(t.msgContentAdded);
                         }} className="flex-1 bg-[#fcd385] text-black py-2.5 rounded-lg text-sm font-bold">{editingPromoId ? t.updateBtn : t.addBtn}</button>
-                        {editingPromoId && <button onClick={() => {setEditingPromoId(null); setNewPromo({title_en:'', body_en:'', title_mm:'', body_mm:''});}} className="px-4 bg-zinc-700 text-white rounded-lg font-bold">{t.cancelBtn}</button>}
+                        {editingPromoId && <button onClick={() => {setEditingPromoId(null); setNewPromo({title_en:'', body_en:'', title_mm:'', body_mm:'', image: ''});}} className="px-4 bg-zinc-700 text-white rounded-lg font-bold">{t.cancelBtn}</button>}
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* PROMO LIST SECTION */}
+                  <div>
                     <div className="space-y-3">
                       <div className="relative w-full">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -1458,7 +1473,10 @@ export default function SweetieWorldApp() {
                       </div>
                       {adminFilteredPromos.map(p => (
                         <div key={p.id} className="bg-[#1f1f1f] border border-zinc-800 p-3 rounded-lg flex justify-between items-center">
-                           <div className="truncate pr-4 text-sm text-white font-bold">{p.title_en || p.title_mm}</div>
+                           <div className="flex items-center gap-3 overflow-hidden">
+                             {p.image && <img src={p.image} alt="Promo" className="w-10 h-10 object-cover rounded shadow" />}
+                             <div className="truncate pr-4 text-sm text-white font-bold">{p.title_en || p.title_mm}</div>
+                           </div>
                            <div className="flex gap-2">
                              <button onClick={() => {setEditingPromoId(p.id); setNewPromo(p); window.scrollTo(0,0);}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700"><Edit className="w-4 h-4"/></button>
                              <button onClick={() => setConfirmModal({
@@ -1470,6 +1488,16 @@ export default function SweetieWorldApp() {
                       ))}
                     </div>
                   </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* SEPARATED FAQ TAB */}
+            {adminActiveTab === 'faq' && (
+              <div className="animate-fade-in space-y-6">
+                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabFaq}</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 font-sans">
                   
                   {/* FAQ EDIT SECTION */}
                   <div>
@@ -1499,6 +1527,10 @@ export default function SweetieWorldApp() {
                         {editingFaqId && <button onClick={() => {setEditingFaqId(null); setNewFaq({title_en:'', body_en:'', title_mm:'', body_mm:''});}} className="px-4 bg-zinc-700 text-white rounded-lg font-bold">{t.cancelBtn}</button>}
                       </div>
                     </div>
+                  </div>
+
+                  {/* FAQ LIST SECTION */}
+                  <div>
                     <div className="space-y-3">
                       <div className="relative w-full">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -1522,6 +1554,7 @@ export default function SweetieWorldApp() {
                       ))}
                     </div>
                   </div>
+
                 </div>
               </div>
             )}
@@ -1730,7 +1763,8 @@ export default function SweetieWorldApp() {
           <h2 className="text-2xl font-bold text-[#fcd385] mb-6 flex items-center gap-2"><Gift className="w-6 h-6"/> {t.promotions}</h2>
           <div className="space-y-4">
             {promotions.map(p => (
-              <div key={p.id} className="bg-gradient-to-r from-[#2b0303] to-[#1a1a1a] p-6 rounded-2xl border border-[#fcd385]/20 shadow-lg font-sans">
+              <div key={p.id} className="bg-gradient-to-r from-[#2b0303] to-[#1a1a1a] p-6 rounded-2xl border border-[#fcd385]/20 shadow-lg font-sans overflow-hidden">
+                {p.image && <img src={p.image} alt="Promotion" className="w-full h-auto max-h-64 object-cover rounded-xl mb-4 border border-zinc-800" />}
                 <h3 className="text-lg font-black text-white mb-2">{lang === 'en' ? (p.title_en || p.title_mm) : (p.title_mm || p.title_en)}</h3>
                 <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{lang === 'en' ? (p.body_en || p.body_mm) : (p.body_mm || p.body_en)}</p>
               </div>
