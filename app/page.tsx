@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+// Firebase Imports များ
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import {
   Play, Lock, Unlock, Search, User, Coins, Sparkles, X, Plus, Edit, Trash2, 
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
@@ -8,72 +11,31 @@ import {
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay
 } from 'lucide-react';
 
+// ------------------------------------------------------------------
+// သတိပြုရန် - အောက်ပါ firebaseConfig နေရာတွင် Firebase မှ သင် Copy ကူးလာသော အချက်အလက်များကို အစားထိုးထည့်ပါ။
+// ------------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAPVvbhDa1xJ97b2N4Mm7it4yY1TRSKaDw",
+  authDomain: "jbsehunjaes-world.firebaseapp.com",
+  projectId: "jbsehunjaes-world",
+  storageBucket: "jbsehunjaes-world.firebasestorage.app",
+  messagingSenderId: "605183918160",
+  appId: "1:605183918160:web:a5a9e10af5a113fa32d155",
+  measurementId: "G-YB2V92YDTS"
+};
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+// ------------------------------------------------------------------
+
 // --- Types ---
-interface EpLink {
-  platform: string;
-  url: string;
-}
-
-interface EpisodeData {
-  epLabel: string;
-  links: EpLink[];
-  releaseDateRaw?: string;
-  releaseDate: string;
-}
-
-interface VideoCardData {
-  id: string;
-  title_en: string;
-  title_mm: string;
-  image: string;
-  category: string;
-  description: string;
-  totalEpisodes: number;
-  pointsPerEp: number;
-  episodes: EpisodeData[];
-  vipTelegramLink?: string;
-}
-
-interface UserData {
-  username: string;
-  email: string;
-  password?: string;
-  role: 'admin' | 'user';
-  points: number;
-  vip: boolean;
-  unlockedShows: string[];
-}
-
-interface PointRequest {
-  id: string;
-  username: string;
-  idCode: string;
-  provider: string;
-  date: string;
-  status: 'pending' | 'approved' | 'rejected';
-  amount?: number;
-  remark?: string; 
-}
-
-interface ContentItem {
-  id: string;
-  title_en: string;
-  body_en: string;
-  title_mm: string;
-  body_mm: string;
-}
-
-interface SiteConfig {
-  marqueeEn: string;
-  marqueeMm: string;
-  depositGuideEn: string;
-  depositGuideMm: string;
-  paymentWarningEn: string;
-  paymentWarningMm: string;
-  fbLink: string;
-  tgLink: string;
-  viberLink: string;
-}
+interface EpLink { platform: string; url: string; }
+interface EpisodeData { epLabel: string; links: EpLink[]; releaseDateRaw?: string; releaseDate: string; }
+interface VideoCardData { id: string; title_en: string; title_mm: string; image: string; category: string; description: string; totalEpisodes: number; pointsPerEp: number; episodes: EpisodeData[]; vipTelegramLink?: string; }
+interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; }
+interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; remark?: string; }
+interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
+interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; fbLink: string; tgLink: string; viberLink: string; }
 
 const DEFAULT_CONFIG: SiteConfig = {
   marqueeEn: "We do not accept gambling advertisements.",
@@ -102,10 +64,7 @@ const formatDateTime = (dateString: string) => {
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return dateString;
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let h = d.getHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12;
-  h = h ? h : 12; 
+  let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; h = h ? h : 12; 
   const m = d.getMinutes().toString().padStart(2, '0');
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m} ${ampm}`;
 };
@@ -208,6 +167,7 @@ const INITIAL_USERS: UserData[] = [
 
 export default function SweetieWorldApp() {
   const [isClient, setIsClient] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lang, setLang] = useState<'mm' | 'en'>('mm');
   const t = TRANSLATIONS[lang];
 
@@ -237,57 +197,74 @@ export default function SweetieWorldApp() {
   // Platform Selector Modal for multiple links
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
 
+  // --- Firebase Data Fetching ---
   useEffect(() => {
     setIsClient(true);
-    const savedUsers = localStorage.getItem('sw_users');
-    if (savedUsers && JSON.parse(savedUsers).length > 0) setUsers(JSON.parse(savedUsers));
+    const loadData = async () => {
+      try {
+        const fetchDoc = async (colName: string, setFn: any, defaultVal: any) => {
+           const snap = await getDoc(doc(db, "SiteData", colName));
+           if (snap.exists() && snap.data().data && snap.data().data.length > 0) {
+               setFn(snap.data().data);
+           } else if (defaultVal) {
+               setFn(defaultVal);
+           }
+        };
+        
+        const fetchObjDoc = async (colName: string, setFn: any, defaultVal: any) => {
+           const snap = await getDoc(doc(db, "SiteData", colName));
+           if (snap.exists() && snap.data().data) {
+               setFn(snap.data().data);
+           } else if (defaultVal) {
+               setFn(defaultVal);
+           }
+        };
 
-    const savedShows = localStorage.getItem('sw_shows');
-    if (savedShows && JSON.parse(savedShows).length > 0) {
-      const parsedShows = JSON.parse(savedShows);
-      const migratedShows = parsedShows.map((s: any) => ({
-         ...s,
-         episodes: s.episodes.map((ep: any) => ({
-             ...ep,
-             links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : [])
-         }))
-      }));
-      setShows(migratedShows);
-    }
+        await fetchDoc("users", setUsers, INITIAL_USERS);
+        
+        const showsSnap = await getDoc(doc(db, "SiteData", "shows"));
+        if (showsSnap.exists() && showsSnap.data().data && showsSnap.data().data.length > 0) {
+           const parsedShows = showsSnap.data().data;
+           const migratedShows = parsedShows.map((s: any) => ({
+              ...s,
+              episodes: s.episodes.map((ep: any) => ({
+                  ...ep,
+                  links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : [])
+              }))
+           }));
+           setShows(migratedShows);
+        } else {
+           setShows(INITIAL_SHOWS);
+        }
 
-    const savedCats = localStorage.getItem('sw_categories');
-    if (savedCats && JSON.parse(savedCats).length > 0) setCategories(JSON.parse(savedCats));
+        await fetchDoc("categories", setCategories, INITIAL_CATEGORIES);
+        await fetchDoc("platforms", setPlatforms, INITIAL_PLATFORMS);
+        await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
+        await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
+        await fetchDoc("pointRequests", setPointRequests, []);
+        await fetchObjDoc("paymentProviders", setPaymentProviders, INITIAL_PROVIDERS);
+        await fetchObjDoc("siteConfig", setSiteConfig, DEFAULT_CONFIG);
 
-    const savedPlatforms = localStorage.getItem('sw_platforms');
-    if (savedPlatforms && JSON.parse(savedPlatforms).length > 0) setPlatforms(JSON.parse(savedPlatforms));
+      } catch(e) {
+        console.error("Firebase fetch error", e);
+      } finally {
+        setIsInitialLoad(false);
+      }
+    };
 
-    const savedPromos = localStorage.getItem('sw_promos');
-    if (savedPromos && JSON.parse(savedPromos).length > 0) setPromotions(JSON.parse(savedPromos));
-    else setPromotions([{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
-
-    const savedFaqs = localStorage.getItem('sw_faqs');
-    if (savedFaqs && JSON.parse(savedFaqs).length > 0) setFaqs(JSON.parse(savedFaqs));
-    else setFaqs([{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
-
-    const savedReqs = localStorage.getItem('sw_reqs');
-    if (savedReqs) setPointRequests(JSON.parse(savedReqs));
-
-    const savedProviders = localStorage.getItem('sw_providers');
-    if (savedProviders) setPaymentProviders(JSON.parse(savedProviders));
-
-    const savedConfig = localStorage.getItem('sw_config');
-    if (savedConfig) setSiteConfig(JSON.parse(savedConfig));
+    loadData();
   }, []);
 
-  useEffect(() => { if (isClient && users.length > 0) localStorage.setItem('sw_users', JSON.stringify(users)); }, [users, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_shows', JSON.stringify(shows)); }, [shows, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_categories', JSON.stringify(categories)); }, [categories, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_platforms', JSON.stringify(platforms)); }, [platforms, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_promos', JSON.stringify(promotions)); }, [promotions, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_faqs', JSON.stringify(faqs)); }, [faqs, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_reqs', JSON.stringify(pointRequests)); }, [pointRequests, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_providers', JSON.stringify(paymentProviders)); }, [paymentProviders, isClient]);
-  useEffect(() => { if (isClient) localStorage.setItem('sw_config', JSON.stringify(siteConfig)); }, [siteConfig, isClient]);
+  // --- Firebase Data Auto-Saving ---
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
 
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   
@@ -475,6 +452,15 @@ export default function SweetieWorldApp() {
   );
 
   if (!isClient) return null;
+
+  if (isInitialLoad) {
+    return (
+      <div className="min-h-screen bg-[#111111] flex flex-col items-center justify-center text-[#fcd385]">
+        <div className="w-12 h-12 border-4 border-[#fcd385] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="font-bold tracking-widest uppercase text-sm">Loading Jbsehunjae’s World...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#111111] text-gray-100 pb-20" style={{ fontFamily: '"Georgia", "Times New Roman", "Myanmar Text", serif' }}>
@@ -1519,7 +1505,7 @@ export default function SweetieWorldApp() {
                   <div>
                     <h4 className="text-[#fcd385] text-sm font-bold mb-3 border-b border-white/10 pb-2">{t.payBank}</h4>
                     <div className="space-y-2">
-                      {paymentProviders.banks.map(p => (
+                      {paymentProviders.banks.map((p: any) => (
                         <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
@@ -1533,7 +1519,7 @@ export default function SweetieWorldApp() {
                   <div>
                     <h4 className="text-[#fcd385] text-sm font-bold mb-3 border-b border-white/10 pb-2">{t.payEwallet}</h4>
                     <div className="space-y-2">
-                      {paymentProviders.ewallets.map(p => (
+                      {paymentProviders.ewallets.map((p: any) => (
                         <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
