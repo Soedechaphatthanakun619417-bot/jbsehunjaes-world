@@ -50,13 +50,13 @@ const DEFAULT_CONFIG: SiteConfig = {
 
 const INITIAL_PROVIDERS = {
   banks: [
-    { id: 'aya-bank', name: 'AYA Bank', qrImage: 'https://via.placeholder.com/200?text=AYA+QR', color: 'bg-red-600' },
-    { id: 'kbz-bank', name: 'KBZ Bank', qrImage: 'https://via.placeholder.com/200?text=KBZ+QR', color: 'bg-blue-600' }
+    { id: 'aya-bank', name: 'AYA Bank', qrImage: 'https://via.placeholder.com/200?text=AYA+QR', color: 'bg-red-600', accountNo: '' },
+    { id: 'kbz-bank', name: 'KBZ Bank', qrImage: 'https://via.placeholder.com/200?text=KBZ+QR', color: 'bg-blue-600', accountNo: '' }
   ],
   ewallets: [
-    { id: 'aya-pay', name: 'AYA Pay', qrImage: 'https://via.placeholder.com/200?text=AYAPAY+QR', color: 'bg-red-500' },
-    { id: 'kbz-pay', name: 'KBZ Pay', qrImage: 'https://via.placeholder.com/200?text=KBZPAY+QR', color: 'bg-blue-500' },
-    { id: 'wave-pay', name: 'Wave Pay', qrImage: 'https://via.placeholder.com/200?text=WAVEPAY+QR', color: 'bg-yellow-400' }
+    { id: 'aya-pay', name: 'AYA Pay', qrImage: 'https://via.placeholder.com/200?text=AYAPAY+QR', color: 'bg-red-500', accountNo: '' },
+    { id: 'kbz-pay', name: 'KBZ Pay', qrImage: 'https://via.placeholder.com/200?text=KBZPAY+QR', color: 'bg-blue-500', accountNo: '' },
+    { id: 'wave-pay', name: 'Wave Pay', qrImage: 'https://via.placeholder.com/200?text=WAVEPAY+QR', color: 'bg-yellow-400', accountNo: '' }
   ]
 };
 
@@ -132,7 +132,7 @@ const TRANSLATIONS = {
     msgUploaded: "ဇာတ်ကားအချက်အလက် သိမ်းဆည်းပြီးပါပြီ။", msgVipSuccess: "VIP ဝင်ရောက်ခြင်း အောင်မြင်ပါသည်။",
     msgNotEnough: "Points မလုံလောက်ပါ။ လိုအပ်သည် - ", msgUserSaved: "အချက်အလက် ပြင်ဆင်/သိမ်းဆည်း ပြီးပါပြီ!", msgDeleted: "ဖျက်သိမ်းပြီးပါပြီ။",
     msgCopied: "ကူးယူပြီးပါပြီ!", payMenuDeposit: "ငွေသွင်းရန်", payMenuHistory: "မိမိမှတ်တမ်း", paySelectMethod: "ငွေသွင်းရန် ရွေးချယ်ပါ",
-    payBank: "ဘဏ်", payEwallet: "E - ပိုက်ဆံအိတ်", payTxnId: "ငွေလွှဲ ID", paySubmitBtn: "တင်သွင်းရန်", 
+    payBank: "ဘဏ်", payEwallet: "E - ပိုက်ဆံအိတ်", payAccountNo: "အကောင့်နံပါတ် (Account No)", payTxnId: "ငွေလွှဲ ID", paySubmitBtn: "တင်သွင်းရန်", 
     payWarnTitle: "အရေးကြီးသတိပေးချက်", payWarnDesc: "ငွေလွှဲရာတွင် Description (မှတ်ချက်) နေရာ၌ ဘာမှမရေးပါနှင့်။",
     payWarnTime: "ငွေသွင်းထားသူများအနေဖြင့် မနက် ၁ နာရီမှ မနက် ၆ နာရီအတွင်း၊ နေ့ခင်း ၁၂ နာရီမှ ည ၉ နာရီအတွင်းသာ သွင်းပေးပါရန်။ ကျန်သောအချိန်များတွင် Admin မရှိပါသဖြင့် စောင့်ဆိုင်းပေးရပါမည်။",
     statusPending: "စောင့်ဆိုင်းဆဲ", statusSuccess: "အောင်မြင်ပါပြီ", statusRejected: "ငြင်းပယ်ခံရသည်",
@@ -199,7 +199,7 @@ export default function SweetieWorldApp() {
   const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
 
   // New Provider State
-  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks' });
+  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks', accountNo: '' });
 
   // Platform Selector Modal for multiple links
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
@@ -956,10 +956,16 @@ export default function SweetieWorldApp() {
                                   onConfirm: () => setPaymentProviders({...paymentProviders, banks: paymentProviders.banks.filter(b => b.id !== p.id)})
                                })} className="p-1.5 bg-red-900/30 rounded text-red-400 hover:bg-red-900 transition"><Trash2 className="w-4 h-4"/></button>
                              </div>
-                             <input type="text" placeholder={t.qrLinkPlaceholder} value={p.qrImage || ''} onChange={e => {
-                                 const newBanks = [...paymentProviders.banks]; newBanks[idx].qrImage = e.target.value;
-                                 setPaymentProviders({...paymentProviders, banks: newBanks});
-                               }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                             <div className="flex flex-col gap-2 mt-2">
+                               <input type="text" placeholder={t.qrLinkPlaceholder} value={p.qrImage || ''} onChange={e => {
+                                   const newBanks = [...paymentProviders.banks]; newBanks[idx].qrImage = e.target.value;
+                                   setPaymentProviders({...paymentProviders, banks: newBanks});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                               <input type="text" placeholder="Account Number..." value={p.accountNo || ''} onChange={e => {
+                                   const newBanks = [...paymentProviders.banks]; newBanks[idx].accountNo = e.target.value;
+                                   setPaymentProviders({...paymentProviders, banks: newBanks});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                             </div>
                           </div>
                         ))}
                       </div>
@@ -978,32 +984,39 @@ export default function SweetieWorldApp() {
                                   onConfirm: () => setPaymentProviders({...paymentProviders, ewallets: paymentProviders.ewallets.filter(e => e.id !== p.id)})
                                })} className="p-1.5 bg-red-900/30 rounded text-red-400 hover:bg-red-900 transition"><Trash2 className="w-4 h-4"/></button>
                              </div>
-                             <input type="text" placeholder={t.qrLinkPlaceholder} value={p.qrImage || ''} onChange={e => {
-                                 const newEwallets = [...paymentProviders.ewallets]; newEwallets[idx].qrImage = e.target.value;
-                                 setPaymentProviders({...paymentProviders, ewallets: newEwallets});
-                               }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                             <div className="flex flex-col gap-2 mt-2">
+                               <input type="text" placeholder={t.qrLinkPlaceholder} value={p.qrImage || ''} onChange={e => {
+                                   const newEwallets = [...paymentProviders.ewallets]; newEwallets[idx].qrImage = e.target.value;
+                                   setPaymentProviders({...paymentProviders, ewallets: newEwallets});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                               <input type="text" placeholder="Account Number (Phone)..." value={p.accountNo || ''} onChange={e => {
+                                   const newEwallets = [...paymentProviders.ewallets]; newEwallets[idx].accountNo = e.target.value;
+                                   setPaymentProviders({...paymentProviders, ewallets: newEwallets});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                             </div>
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-6 pt-4 border-t border-zinc-800 flex gap-2">
+                      <div className="mt-6 pt-4 border-t border-zinc-800 flex flex-col sm:flex-row gap-2">
                         <input type="text" placeholder="Name (e.g. KBZ Pay)" value={newProvider.name || ''} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                        <input type="text" placeholder="Account No" value={newProvider.accountNo || ''} onChange={e => setNewProvider({...newProvider, accountNo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
                         <select value={newProvider.type || ''} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385]">
                           <option value="banks">Bank</option>
                           <option value="ewallets">E-Wallet</option>
                         </select>
                         <button onClick={() => {
                           if(newProvider.name.trim()) {
-                            const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600' };
+                            const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600', accountNo: newProvider.accountNo };
                             if (newProvider.type === 'banks') {
                               setPaymentProviders({...paymentProviders, banks: [...paymentProviders.banks, newProv]});
                             } else {
                               setPaymentProviders({...paymentProviders, ewallets: [...paymentProviders.ewallets, newProv]});
                             }
-                            setNewProvider({ name: '', type: 'banks' });
+                            setNewProvider({ name: '', type: 'banks', accountNo: '' });
                             showToast("Payment method added.");
                           }
-                        }} className="bg-[#fcd385] px-4 rounded-lg text-black text-sm font-bold">{t.addBtn}</button>
+                        }} className="bg-[#fcd385] px-4 py-2 sm:py-0 rounded-lg text-black text-sm font-bold">{t.addBtn}</button>
                       </div>
                     </div>
 
@@ -1751,6 +1764,20 @@ export default function SweetieWorldApp() {
                     <div className="bg-black/50 p-4 rounded-xl border border-white/10 text-center shadow-inner">
                        <p className="text-sm font-bold text-[#fcd385] mb-4">Scan QR to Pay with {selectedProvider.name}</p>
                        <img src={selectedProvider.qrImage || 'https://via.placeholder.com/200'} alt="QR Code" className="w-48 h-48 object-contain mx-auto rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.5)] border border-white/20" />
+                       
+                       {/* New Account Number Section */}
+                       {selectedProvider.accountNo && (
+                         <div className="mt-5 p-3 bg-[#1f1f1f] rounded-lg border border-[#fcd385]/20 flex items-center justify-between">
+                            <div className="text-left">
+                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{t.payAccountNo}</p>
+                              <p className="text-base text-white font-black font-mono tracking-widest mt-1">{selectedProvider.accountNo}</p>
+                            </div>
+                            <button type="button" onClick={() => handleCopy(selectedProvider.accountNo)} className="bg-zinc-800 hover:bg-zinc-700 text-[#fcd385] p-2 rounded-lg transition shadow-lg">
+                              <Copy className="w-5 h-5"/>
+                            </button>
+                         </div>
+                       )}
+
                     </div>
                     <form onSubmit={handlePointSubmit} className="space-y-4">
                       <div>
