@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // Firebase Imports များ
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
@@ -9,7 +9,7 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff, Download, RefreshCw
+  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -37,6 +37,8 @@ interface UserData { username: string; email: string; password?: string; role: '
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
 interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; fbLink: string; tgLink: string; viberLink: string; }
+interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit'; }
+interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
 
 const DEFAULT_CONFIG: SiteConfig = {
   marqueeEn: "We do not accept gambling advertisements.",
@@ -84,6 +86,7 @@ const TRANSLATIONS = {
     balance: "Your Balance:", unlockBtn: "Deduct Points & Unlock", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
     adminTabUsers: "User Dashboard", adminTabPoints: "Point Requests", adminTabHistory: "Transaction History", 
     adminTabSettings: "System Settings", adminTabPromo: "Promo & FAQ Manage", adminTabUpload: "Upload Movies / Series",
+    adminTabLogs: "Action Logs",
     userMgmt: "User Management", searchUser: "Search Username or Email...", searchPoint: "Search Username or ID Code...",
     createUser: "Create User", pointReqs: "Point Requests", managePromoFaq: "Manage Promotions & FAQs", addCat: "Add Category",
     uploadVid: "Upload Movie / Series", genSlots: "Generate Slots", saveBtn: "Save Content", updateBtn: "Update Content",
@@ -107,7 +110,8 @@ const TRANSLATIONS = {
     oldPwd: "Old Password", newPwd: "New Password", confirmPwd: "Confirm Password", pwdMismatch: "Passwords do not match!", wrongOldPwd: "Old password is incorrect!",
     choosePlatform: "Choose Platform", watchOn: "Watch on",
     downloadQR: "Download QR Code",
-    rememberMe: "Remember me for future logins"
+    rememberMe: "Remember me for future logins",
+    notifications: "Notifications", noNoti: "No notifications.", markAllRead: "Mark all as read", inbox: "Inbox / Messages"
   },
   mm: {
     loginBtn: "အကောင့်ဝင်ရန်", signUpBtn: "အကောင့်ဖွင့်ရန်", adminPanel: "Admin စာမျက်နှာ", logout: "အကောင့်မှထွက်ရန်", pts: "မှတ်",
@@ -122,6 +126,7 @@ const TRANSLATIONS = {
     balance: "သင့်လက်ကျန်:", unlockBtn: "Point ဖျက်၍ ဝင်မည်", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
     adminTabUsers: "အကောင့်ဖွင့်ထားသော User များ", adminTabPoints: "Point တောင်းဆိုမှုများ", adminTabHistory: "ငွေသွင်းမှတ်တမ်းများ", 
     adminTabSettings: "စနစ် အပြင်အဆင်များ", adminTabPromo: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", adminTabUpload: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", 
+    adminTabLogs: "အက်ဒမင် စီမံမှု မှတ်တမ်းများ",
     userMgmt: "အသုံးပြုသူများ စီမံရန်", searchUser: "Username (သို့) Email ရှာရန်...", searchPoint: "Username သို့မဟုတ် ID Code ဖြင့်ရှာပါ...", 
     createUser: "အကောင့်ဖွင့်ပေးရန်", pointReqs: "Point တောင်းဆိုမှုများ (Pending)", managePromoFaq: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", addCat: "အမျိုးအစား အသစ်ထည့်ရန်", 
     uploadVid: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", genSlots: "အပိုင်းများ ဖန်တီးရန်", saveBtn: "သိမ်းမည်", updateBtn: "ပြင်ဆင်မည်", titleEnPlaceholder: "ခေါင်းစဉ် (English)",
@@ -145,7 +150,8 @@ const TRANSLATIONS = {
     oldPwd: "လက်ရှိ စကားဝှက်", newPwd: "စကားဝှက် အသစ်", confirmPwd: "စကားဝှက် အသစ် (အတည်ပြုရန်)", pwdMismatch: "စကားဝှက်များ မတူညီပါ!", wrongOldPwd: "လက်ရှိ စကားဝှက် မှားယွင်းနေပါသည်!",
     choosePlatform: "ကြည့်ရှုမည့် နေရာကို ရွေးချယ်ပါ", watchOn: "ကြည့်ရှုရန် -",
     downloadQR: "QR ကို ဒေါင်းလုဒ်လုပ်ရန်",
-    rememberMe: "နောက်တစ်ခါ ဝင်စရာမလိုအောင် မှတ်သားထားမည်"
+    rememberMe: "နောက်တစ်ခါ ဝင်စရာမလိုအောင် မှတ်သားထားမည်",
+    notifications: "အသိပေးချက်များ", noNoti: "အသိပေးချက် အသစ်မရှိပါ။", markAllRead: "အားလုံးကို ဖတ်ပြီးအဖြစ်မှတ်မည်", inbox: "အသိပေးချက်များ (Inbox)"
   }
 };
 
@@ -186,6 +192,11 @@ export default function SweetieWorldApp() {
   const [paymentProviders, setPaymentProviders] = useState(INITIAL_PROVIDERS);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   
+  // New States for Notification & Logs
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [adminLogs, setAdminLogs] = useState<AdminLogData[]>([]);
+  const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
+  
   // Custom 3D Modal States with dynamic action support
   const [alertModal, setAlertModal] = useState<{message: string, actionText?: string, onAction?: () => void} | null>(null);
   const [confirmModal, setConfirmModal] = useState<{message?: string, onConfirm: () => void} | null>(null);
@@ -216,9 +227,15 @@ export default function SweetieWorldApp() {
   const [historyPerPage, setHistoryPerPage] = useState(10);
   const [showsPage, setShowsPage] = useState(1);
   const [showsPerPage, setShowsPerPage] = useState(10);
+  const [adminLogPage, setAdminLogPage] = useState(1);
+  const [adminLogPerPage, setAdminLogPerPage] = useState(10);
 
   // Bulk Delete State
   const [bulkDeleteDate, setBulkDeleteDate] = useState('');
+  const [adminLogBulkDate, setAdminLogBulkDate] = useState('');
+
+  // Noti Bell Reference for clicking outside
+  const notiRef = useRef<HTMLDivElement>(null);
 
   // --- Firebase Data Fetching ---
   useEffect(() => {
@@ -265,6 +282,8 @@ export default function SweetieWorldApp() {
         await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
         await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
         await fetchDoc("pointRequests", setPointRequests, []);
+        await fetchDoc("notifications", setNotifications, []);
+        await fetchDoc("adminLogs", setAdminLogs, []);
         await fetchObjDoc("paymentProviders", setPaymentProviders, INITIAL_PROVIDERS);
         await fetchObjDoc("siteConfig", setSiteConfig, DEFAULT_CONFIG);
 
@@ -276,6 +295,16 @@ export default function SweetieWorldApp() {
     };
 
     loadData();
+
+    // Close Dropdown when click outside
+    const handleClickOutside = (event: any) => {
+      if (notiRef.current && !notiRef.current.contains(event.target)) {
+        setNotiDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+
   }, []);
 
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
@@ -308,6 +337,14 @@ export default function SweetieWorldApp() {
             return (updated && JSON.stringify(prev) !== JSON.stringify(updated)) ? updated : prev;
          });
       }
+      const nSnap = await getDoc(doc(db, "SiteData", "notifications"));
+      if (nSnap.exists() && nSnap.data().data) {
+         setNotifications(prev => JSON.stringify(prev) !== JSON.stringify(nSnap.data().data) ? nSnap.data().data : prev);
+      }
+      const lSnap = await getDoc(doc(db, "SiteData", "adminLogs"));
+      if (lSnap.exists() && lSnap.data().data) {
+         setAdminLogs(prev => JSON.stringify(prev) !== JSON.stringify(lSnap.data().data) ? lSnap.data().data : prev);
+      }
     } catch(e) {
       console.error("Sync error:", e);
     }
@@ -321,6 +358,8 @@ export default function SweetieWorldApp() {
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
   useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
 
@@ -331,6 +370,8 @@ export default function SweetieWorldApp() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false); 
+  const [userMenuTab, setUserMenuTab] = useState<'menu' | 'messages'>('menu');
+
   const [activeTab, setActiveTab] = useState<'home' | 'promo' | 'faq'>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -346,10 +387,11 @@ export default function SweetieWorldApp() {
   const [scheduleAlert, setScheduleAlert] = useState<{isOpen: boolean, date: string, show: VideoCardData} | null>(null);
   
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'settings' | 'promo' | 'upload'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'upload'>('users');
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminPointSearch, setAdminPointSearch] = useState('');
   const [adminHistorySearch, setAdminHistorySearch] = useState('');
+  const [adminLogSearch, setAdminLogSearch] = useState('');
   const [adminUploadedSearch, setAdminUploadedSearch] = useState('');
   const [adminPromoSearch, setAdminPromoSearch] = useState('');
   const [adminFaqSearch, setAdminFaqSearch] = useState('');
@@ -357,7 +399,8 @@ export default function SweetieWorldApp() {
   const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
   const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
   const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
-  
+  const [editUserRemark, setEditUserRemark] = useState(''); // New State for Admin Remark
+
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [editingShowId, setEditingShowId] = useState<string | null>(null);
@@ -511,6 +554,13 @@ export default function SweetieWorldApp() {
       status: 'pending'
     };
     
+    const newNoti: NotificationData = {
+      id: Date.now().toString()+'_noti', targetUser: 'admin',
+      message: `Point Request from ${currentUser.username} (ID: ${idCodeInput.trim()})`,
+      date: new Date().toISOString(), isRead: false, actionType: 'point_request'
+    };
+
+    setNotifications([newNoti, ...notifications]);
     setPointRequests([newReq, ...pointRequests]);
     showToast(t.msgPointSent);
     setIdCodeInput('');
@@ -518,6 +568,11 @@ export default function SweetieWorldApp() {
   };
 
   const handleAdminSaveUser = () => {
+    if (!editUserRemark.trim() && editUserModal.mode === 'edit') {
+       setAlertModal({ message: "လုပ်ဆောင်ရသည့် အကြောင်းရင်း (Remark) ကို ထည့်ပေးပါ။" });
+       return;
+    }
+
     if (editUserModal.mode === 'create') {
       const exists = users.find(u => u.username.toLowerCase() === editUserForm.username.trim().toLowerCase() || u.email.toLowerCase() === editUserForm.email.trim().toLowerCase());
       if (exists) return setAlertModal({ message: t.msgExists });
@@ -525,10 +580,38 @@ export default function SweetieWorldApp() {
     } else {
       setUsers(users.map(u => u.username === editUserModal.oldUsername ? {...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()} : u));
       if(currentUser?.username === editUserModal.oldUsername) setCurrentUser({...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()});
+      
+      // Save Logs & Notification
+      if(editUserRemark.trim() && currentUser) {
+         const newLog: AdminLogData = {
+           id: Date.now().toString()+'_log', adminName: currentUser.username, targetUser: editUserForm.username.trim(),
+           action: 'Edit User Profile', remark: editUserRemark.trim(), date: new Date().toISOString()
+         };
+         const newNoti: NotificationData = {
+           id: Date.now().toString()+'_noti', targetUser: editUserForm.username.trim(),
+           message: `Admin မှ သင့်အကောင့်အား ပြင်ဆင်မှုပြုလုပ်ခဲ့ပါသည်။ (Admin Action)`, detail: editUserRemark.trim(),
+           date: new Date().toISOString(), isRead: false, actionType: 'admin_edit'
+         };
+         setAdminLogs([newLog, ...adminLogs]);
+         setNotifications([newNoti, ...notifications]);
+      }
     }
     showToast(t.msgUserSaved);
     setEditUserModal({isOpen: false, mode: 'create'});
     setShowAuthPassword(false);
+    setEditUserRemark('');
+  };
+
+  const handleNotiClick = (n: NotificationData) => {
+     setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x));
+     setNotiDropdownOpen(false);
+     if(n.actionType === 'point_request') {
+        setAdminDashboardOpen(true); setAdminActiveTab('points');
+     } else if (n.actionType === 'point_approve' || n.actionType === 'point_reject') {
+        syncLatestData(); setPayStep('history'); setPointModalOpen(true);
+     } else if (n.actionType === 'admin_edit') {
+        syncLatestData(); setUserMenuTab('messages'); setUserMenuOpen(true);
+     }
   };
 
   const getRequiredPoints = (show: VideoCardData) => {
@@ -536,12 +619,14 @@ export default function SweetieWorldApp() {
     return unreleasedCount * (show.pointsPerEp ?? 20);
   };
 
-  // Bulk Delete Data calculation
+  // Bulk Delete Data calculation for History
   const recordsToDelete = bulkDeleteDate ? pointRequests.filter(r => {
-    const reqD = new Date(r.date);
-    const selD = new Date(bulkDeleteDate);
-    selD.setHours(23, 59, 59, 999);
-    return reqD.getTime() <= selD.getTime();
+    const reqD = new Date(r.date); const selD = new Date(bulkDeleteDate); selD.setHours(23, 59, 59, 999); return reqD.getTime() <= selD.getTime();
+  }) : [];
+
+  // Bulk Delete Data calculation for Admin Logs
+  const logsToDelete = adminLogBulkDate ? adminLogs.filter(l => {
+    const logD = new Date(l.date); const selD = new Date(adminLogBulkDate); selD.setHours(23, 59, 59, 999); return logD.getTime() <= selD.getTime();
   }) : [];
 
   const filteredShows = shows.filter(s => {
@@ -566,6 +651,9 @@ export default function SweetieWorldApp() {
   const adminFilteredHistory = pointRequests.filter(r => r.username.toLowerCase().includes(adminHistorySearch.toLowerCase()) || r.idCode.toLowerCase().includes(adminHistorySearch.toLowerCase()));
   const paginatedHistory = adminFilteredHistory.slice((historyPage - 1) * historyPerPage, historyPage * historyPerPage);
 
+  const adminFilteredLogs = adminLogs.filter(l => l.adminName.toLowerCase().includes(adminLogSearch.toLowerCase()) || l.targetUser.toLowerCase().includes(adminLogSearch.toLowerCase()) || l.action.toLowerCase().includes(adminLogSearch.toLowerCase()));
+  const paginatedLogs = adminFilteredLogs.slice((adminLogPage - 1) * adminLogPerPage, adminLogPage * adminLogPerPage);
+
   const adminUploadedShowsFiltered = shows.filter(s => 
     (s.title_en?.toLowerCase().includes(adminUploadedSearch.toLowerCase()) || 
      s.title_mm?.toLowerCase().includes(adminUploadedSearch.toLowerCase()))
@@ -581,6 +669,10 @@ export default function SweetieWorldApp() {
     (f.title_en?.toLowerCase().includes(adminFaqSearch.toLowerCase()) || 
      f.title_mm?.toLowerCase().includes(adminFaqSearch.toLowerCase()))
   );
+
+  // User & Admin Notifications Logic
+  const myNotis = notifications.filter(n => n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const unreadNotiCount = myNotis.filter(n => !n.isRead).length;
 
   if (!isClient) return null;
 
@@ -677,13 +769,44 @@ export default function SweetieWorldApp() {
                 </button>
               )}
               
+              {/* NOTIFICATION BELL */}
+              <div className="relative shrink-0" ref={notiRef}>
+                 <button onClick={() => {syncLatestData(); setNotiDropdownOpen(!notiDropdownOpen);}} className="p-2 bg-[#1f1f1f] rounded-full border border-zinc-700 hover:border-[#fcd385]/50 transition relative flex items-center justify-center">
+                    <Bell className={`w-5 h-5 ${unreadNotiCount > 0 ? 'text-[#fcd385]' : 'text-zinc-400'}`} />
+                    {unreadNotiCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-[#161616] animate-pulse">{unreadNotiCount}</span>}
+                 </button>
+                 
+                 {/* NOTIFICATION DROPDOWN */}
+                 {notiDropdownOpen && (
+                   <div className="absolute right-0 top-12 mt-1 w-[320px] max-h-[80vh] bg-[#1a1a1a] border border-[#fcd385]/30 shadow-2xl rounded-2xl z-[200] flex flex-col overflow-hidden animate-fade-in">
+                      <div className="p-4 border-b border-zinc-800 bg-[#161616] flex justify-between items-center">
+                        <h4 className="font-bold text-[#fcd385] flex items-center gap-2"><Bell className="w-4 h-4"/> {t.notifications}</h4>
+                        {myNotis.length > 0 && <button onClick={() => setNotifications(notifications.map(n => (n.targetUser === currentUser.username || (currentUser.role==='admin'&&n.targetUser==='admin')) ? {...n, isRead: true} : n))} className="text-[10px] text-zinc-400 hover:text-white transition">{t.markAllRead}</button>}
+                      </div>
+                      <div className="flex-1 overflow-y-auto max-h-[300px] custom-scrollbar">
+                         {myNotis.length === 0 ? <p className="text-xs text-zinc-500 text-center py-6">{t.noNoti}</p> : myNotis.map(n => (
+                           <div key={n.id} onClick={() => handleNotiClick(n)} className={`p-4 border-b border-zinc-800/50 cursor-pointer hover:bg-black/40 transition flex gap-3 ${n.isRead ? 'opacity-60' : 'bg-[#2b0303]/30 border-l-2 border-l-[#fcd385]'}`}>
+                              <div className="shrink-0 mt-1">
+                                {n.actionType === 'point_request' ? <AlertCircle className="w-5 h-5 text-yellow-400"/> : n.actionType === 'point_approve' ? <CheckCircle className="w-5 h-5 text-emerald-400"/> : n.actionType === 'point_reject' ? <XCircle className="w-5 h-5 text-red-500"/> : <Mail className="w-5 h-5 text-blue-400"/>}
+                              </div>
+                              <div>
+                                <p className={`text-xs ${n.isRead ? 'text-zinc-300' : 'text-white font-bold'} mb-1`}>{n.message}</p>
+                                <span className="text-[9px] text-zinc-500">{formatDateTime(n.date)}</span>
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                   </div>
+                 )}
+              </div>
+
               {/* BIGGER POINTS BUTTON */}
               <button onClick={() => {syncLatestData(); setPayStep('menu'); setPointModalOpen(true);}} className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#2b0303] to-[#1a0101] border-2 border-[#fcd385] text-[#fcd385] px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm sm:text-base font-black shadow-[0_0_10px_rgba(252,211,133,0.3)] hover:brightness-110 transition shrink-0">
                 <Coins className="w-5 h-5 sm:w-5 sm:h-5 text-yellow-400" /> <span>{currentUser.points} {t.pts}</span>
               </button>
               
               {/* BIGGER USER PROFILE BUTTON */}
-              <div onClick={() => {syncLatestData(); setUserMenuOpen(true);}} className="cursor-pointer p-2 sm:p-2 bg-[#fcd385] rounded-full hover:bg-yellow-400 transition shadow-[0_0_10px_rgba(252,211,133,0.4)] border-2 border-[#d4af37] flex items-center justify-center shrink-0">
+              <div onClick={() => {syncLatestData(); setUserMenuTab('menu'); setUserMenuOpen(true);}} className="cursor-pointer p-2 sm:p-2 bg-[#fcd385] rounded-full hover:bg-yellow-400 transition shadow-[0_0_10px_rgba(252,211,133,0.4)] border-2 border-[#d4af37] flex items-center justify-center shrink-0">
                  <User className="w-5 h-5 sm:w-5 sm:h-5 text-[#3e1717]" />
               </div>
             </div>
@@ -710,48 +833,77 @@ export default function SweetieWorldApp() {
         <div className="fixed inset-0 z-[100] flex justify-end font-sans">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUserMenuOpen(false)} />
           <div className="relative w-72 max-w-[75%] bg-[#5c0909] h-full shadow-2xl flex flex-col animate-slide-in border-l border-[#fcd385]/30">
-             <div className="flex justify-between items-center p-4 border-b border-[#fcd385]/20">
-                <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full border border-[#fcd385] flex items-center justify-center bg-black/30">
-                     <User className="w-4 h-4 text-[#fcd385]"/>
-                   </div>
-                   <h3 className="text-base font-bold text-white uppercase tracking-wider">{currentUser.username}</h3>
-                </div>
-                <button onClick={() => setUserMenuOpen(false)} className="text-white hover:text-[#fcd385] transition"><X className="w-5 h-5"/></button>
-             </div>
-             <div className="p-4 bg-black/20 border-b border-[#fcd385]/10">
-                <p className="text-xs text-zinc-300 mb-1">{t.balance}</p>
-                <p className="text-2xl font-black text-[#fcd385]">Ks. {currentUser.points}</p>
-             </div>
-             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                <button onClick={() => {setChangePwdModalOpen(true); setUserMenuOpen(false);}} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
-                  <div className="flex items-center gap-3"><Key className="w-4 h-4"/> {t.changePwd}</div>
-                  <ChevronRight className="w-4 h-4 text-white/50"/>
-                </button>
-                <button onClick={() => {
-                  setCurrentUser(null);
-                  localStorage.removeItem('jbsehunjaes_auth'); // Logout တဲ့အခါ Remember Me ပါဖျက်မည်
-                  setUserMenuOpen(false);
-                }} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
-                  <div className="flex items-center gap-3"><LogOut className="w-4 h-4"/> {t.logout}</div>
-                  <ChevronRight className="w-4 h-4 text-white/50"/>
-                </button>
+             
+             {userMenuTab === 'menu' ? (
+               <>
+                 <div className="flex justify-between items-center p-4 border-b border-[#fcd385]/20">
+                    <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 rounded-full border border-[#fcd385] flex items-center justify-center bg-black/30">
+                         <User className="w-4 h-4 text-[#fcd385]"/>
+                       </div>
+                       <h3 className="text-base font-bold text-white uppercase tracking-wider">{currentUser.username}</h3>
+                    </div>
+                    <button onClick={() => setUserMenuOpen(false)} className="text-white hover:text-[#fcd385] transition"><X className="w-5 h-5"/></button>
+                 </div>
+                 <div className="p-4 bg-black/20 border-b border-[#fcd385]/10">
+                    <p className="text-xs text-zinc-300 mb-1">{t.balance}</p>
+                    <p className="text-2xl font-black text-[#fcd385]">Ks. {currentUser.points}</p>
+                 </div>
+                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    <button onClick={() => setUserMenuTab('messages')} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
+                      <div className="flex items-center gap-3 relative"><MessageSquareIcon unreadCount={unreadNotiCount}/> {t.inbox}</div>
+                      <ChevronRight className="w-4 h-4 text-white/50"/>
+                    </button>
+                    <button onClick={() => {setChangePwdModalOpen(true); setUserMenuOpen(false);}} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
+                      <div className="flex items-center gap-3"><Key className="w-4 h-4"/> {t.changePwd}</div>
+                      <ChevronRight className="w-4 h-4 text-white/50"/>
+                    </button>
+                    <button onClick={() => {
+                      setCurrentUser(null);
+                      localStorage.removeItem('jbsehunjaes_auth'); // Logout တဲ့အခါ Remember Me ပါဖျက်မည်
+                      setUserMenuOpen(false);
+                    }} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
+                      <div className="flex items-center gap-3"><LogOut className="w-4 h-4"/> {t.logout}</div>
+                      <ChevronRight className="w-4 h-4 text-white/50"/>
+                    </button>
 
-                <div className="mt-6 pt-4 border-t border-[#fcd385]/10">
-                  <h4 className="text-xs font-bold text-[#fcd385] mb-3">{t.contactUs}</h4>
-                  <div className="space-y-2">
-                    <a href={siteConfig.fbLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#1877F2]/20 rounded-xl transition text-white font-bold text-sm">
-                      <Globe className="w-4 h-4 text-[#1877F2]"/> Facebook
-                    </a>
-                    <a href={siteConfig.tgLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#0088cc]/20 rounded-xl transition text-white font-bold text-sm">
-                      <Send className="w-4 h-4 text-[#0088cc]"/> Telegram
-                    </a>
-                    <a href={siteConfig.viberLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#7360f2]/20 rounded-xl transition text-white font-bold text-sm">
-                      <MessageCircle className="w-4 h-4 text-[#7360f2]"/> Viber
-                    </a>
+                    <div className="mt-6 pt-4 border-t border-[#fcd385]/10">
+                      <h4 className="text-xs font-bold text-[#fcd385] mb-3">{t.contactUs}</h4>
+                      <div className="space-y-2">
+                        <a href={siteConfig.fbLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#1877F2]/20 rounded-xl transition text-white font-bold text-sm">
+                          <Globe className="w-4 h-4 text-[#1877F2]"/> Facebook
+                        </a>
+                        <a href={siteConfig.tgLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#0088cc]/20 rounded-xl transition text-white font-bold text-sm">
+                          <Send className="w-4 h-4 text-[#0088cc]"/> Telegram
+                        </a>
+                        <a href={siteConfig.viberLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#7360f2]/20 rounded-xl transition text-white font-bold text-sm">
+                          <MessageCircle className="w-4 h-4 text-[#7360f2]"/> Viber
+                        </a>
+                      </div>
+                    </div>
+                 </div>
+               </>
+             ) : (
+               // INBOX TAB
+               <div className="flex flex-col h-full bg-[#161616]">
+                  <div className="flex items-center gap-3 p-4 border-b border-zinc-800 bg-[#1a1a1a]">
+                    <button onClick={() => setUserMenuTab('menu')} className="p-1 rounded text-zinc-400 hover:text-white transition bg-black/50"><ChevronLeft className="w-5 h-5"/></button>
+                    <h3 className="font-bold text-[#fcd385] flex items-center gap-2"><Mail className="w-4 h-4"/> {t.inbox}</h3>
                   </div>
-                </div>
-             </div>
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                     {myNotis.filter(n => n.targetUser === currentUser.username).length === 0 ? <p className="text-zinc-500 text-xs text-center py-6">{t.noNoti}</p> : myNotis.filter(n => n.targetUser === currentUser.username).map(n => (
+                       <div key={n.id} className={`p-4 rounded-xl border flex flex-col gap-2 shadow-inner transition ${n.isRead ? 'bg-[#1f1f1f] border-zinc-800' : 'bg-[#2b0303] border-[#fcd385]/30'}`} onClick={() => { if(!n.isRead) setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x)) }}>
+                          <div className="flex justify-between items-start gap-2">
+                             <p className={`text-xs ${n.isRead ? 'text-zinc-300' : 'text-white font-bold'}`}>{n.message}</p>
+                             {!n.isRead && <span className="w-2 h-2 rounded-full bg-[#fcd385] shrink-0 mt-1"></span>}
+                          </div>
+                          {n.detail && <p className="text-[11px] text-zinc-400 bg-black/40 p-2 rounded-lg border border-zinc-800/50 leading-relaxed font-bold tracking-wide italic">{n.detail}</p>}
+                          <p className="text-[9px] text-zinc-500 mt-1">{formatDateTime(n.date)}</p>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+             )}
           </div>
         </div>
       )}
@@ -778,6 +930,10 @@ export default function SweetieWorldApp() {
                   {t.adminTabPoints}
                 </button>
                 <button onClick={() => {syncLatestData(); setAdminActiveTab('history')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'history' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Clock className="w-5 h-5"/> {t.adminTabHistory}</button>
+                
+                {/* NEW ADMIN LOGS TAB */}
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('logs')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'logs' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Edit className="w-5 h-5"/> {t.adminTabLogs}</button>
+
                 <button onClick={() => setAdminActiveTab('settings')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'settings' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Settings className="w-5 h-5"/> {t.adminTabSettings}</button>
                 <button onClick={() => setAdminActiveTab('promo')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'promo' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Gift className="w-5 h-5"/> {t.adminTabPromo}</button>
                 <button onClick={() => setAdminActiveTab('upload')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'upload' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Upload className="w-5 h-5"/> {t.adminTabUpload}</button>
@@ -821,7 +977,7 @@ export default function SweetieWorldApp() {
                           <div><span className={`text-[11px] px-2 py-0.5 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900 text-red-200' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span></div>
                           <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => {setEditUserForm({...u}); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition"><Edit className="w-4 h-4"/></button>
+                            <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition"><Edit className="w-4 h-4"/></button>
                             {u.username !== currentUser.username && (
                               <button onClick={() => setConfirmModal({
                                  message: t.confirmDelDesc,
@@ -868,8 +1024,15 @@ export default function SweetieWorldApp() {
                             const amount = approveAmounts[req.id] || 0;
                             if (amount <= 0) return setAlertModal({ message: "Please enter a valid amount." });
                             
+                            const newNoti: NotificationData = {
+                              id: Date.now().toString()+'_noti', targetUser: req.username,
+                              message: `ID ${req.idCode} အတွက် Point ထည့်သွင်းပေးလိုက်ပါပြီ။`, detail: `+${amount} PTS ဖြည့်သွင်းပြီးပါပြီ။`,
+                              date: new Date().toISOString(), isRead: false, actionType: 'point_approve'
+                            };
+
                             setUsers(users.map(u => u.username === req.username ? { ...u, points: u.points + amount } : u));
                             setPointRequests(pointRequests.map(p => p.id === req.id ? { ...p, status: 'approved', amount } : p));
+                            setNotifications([newNoti, ...notifications]);
                             showToast(`${amount} ${t.msgApproved}`);
                           }} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg font-bold transition flex-1 md:flex-none">
                             {t.approveBtn}
@@ -881,7 +1044,13 @@ export default function SweetieWorldApp() {
                                title: t.confirmRejectTitle,
                                placeholder: t.rejectPlaceholder,
                                onSubmit: (reason) => {
+                                 const newNoti: NotificationData = {
+                                   id: Date.now().toString()+'_noti', targetUser: req.username,
+                                   message: `ID ${req.idCode} အတွက် ပယ်ချလိုက်ပါသည်။ Remark ကိုဖတ်ရန်နှိပ်ပါ။`, detail: reason,
+                                   date: new Date().toISOString(), isRead: false, actionType: 'point_reject'
+                                 };
                                  setPointRequests(pointRequests.map(p => p.id === req.id ? { ...p, status: 'rejected', remark: reason } : p));
+                                 setNotifications([newNoti, ...notifications]);
                                  showToast("Request Rejected");
                                }
                              });
@@ -981,6 +1150,90 @@ export default function SweetieWorldApp() {
                   </div>
                   {/* Pagination UI */}
                   {adminFilteredHistory.length > 0 && renderPagination(historyPage, setHistoryPage, historyPerPage, setHistoryPerPage, adminFilteredHistory.length)}
+                </div>
+              </div>
+            )}
+
+            {/* NEW ADMIN LOGS TAB */}
+            {adminActiveTab === 'logs' && (
+              <div className="animate-fade-in space-y-6">
+                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{lang === 'en' ? 'Admin Action Logs' : 'အက်ဒမင် စီမံမှု မှတ်တမ်းများ'}</h3>
+                <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
+                  
+                  {/* Bulk Delete Section */}
+                  <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-red-400 mb-1">Clear Old Logs (On or Before)</label>
+                      <input 
+                        type="date" 
+                        value={adminLogBulkDate} 
+                        onChange={e => setAdminLogBulkDate(e.target.value)} 
+                        className="bg-black/50 border border-red-900/50 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 w-full sm:w-auto outline-none"
+                      />
+                    </div>
+                    {adminLogBulkDate && (
+                       <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                         <span className="text-sm font-bold text-red-300 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-900/50">
+                           {logsToDelete.length} logs found
+                         </span>
+                         <button 
+                           disabled={logsToDelete.length === 0}
+                           onClick={() => {
+                             setConfirmModal({
+                               message: `Are you sure you want to delete ${logsToDelete.length} logs? This action cannot be undone.`,
+                               onConfirm: () => {
+                                 const remaining = adminLogs.filter(r => !logsToDelete.includes(r));
+                                 setAdminLogs(remaining);
+                                 setAdminLogBulkDate('');
+                                 showToast(`${logsToDelete.length} logs deleted.`);
+                               }
+                             })
+                           }}
+                           className="bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex items-center gap-2 shadow-lg"
+                         >
+                           <Trash2 className="w-4 h-4"/> Delete All Selected
+                         </button>
+                       </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                      <input 
+                        type="text" placeholder="Search Admin, User or Action..." value={adminLogSearch}
+                        onChange={e => {setAdminLogSearch(e.target.value); setAdminLogPage(1);}}
+                        className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {paginatedLogs.length === 0 ? (
+                       <p className="text-zinc-500 text-sm py-4">No action logs found.</p>
+                    ) : (
+                      paginatedLogs.map((log, i) => (
+                        <div key={i} className="bg-black/40 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center border border-zinc-800 gap-4 hover:border-zinc-600 transition">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                               <span className="text-[10px] bg-red-900/50 text-red-300 px-2 py-0.5 rounded font-bold uppercase">{log.action}</span>
+                               <span className="text-xs text-zinc-500 font-mono">{formatDateTime(log.date)}</span>
+                            </div>
+                            <p className="text-sm text-white mb-1"><span className="text-zinc-400">By Admin:</span> <span className="font-bold text-blue-400">{log.adminName}</span> <span className="text-zinc-400 mx-1">➜</span> <span className="text-zinc-400">To User:</span> <span className="font-bold text-[#fcd385]">{log.targetUser}</span></p>
+                            <p className="text-xs text-zinc-300 bg-[#161616] border border-zinc-800 p-2 rounded mt-2 font-bold italic tracking-wide"><span className="text-zinc-500 mr-1">Remark:</span> {log.remark}</p>
+                          </div>
+                          <button onClick={() => {
+                            setConfirmModal({
+                              message: t.confirmDelDesc,
+                              onConfirm: () => { setAdminLogs(adminLogs.filter(p => p.id !== log.id)); showToast(t.msgDeleted); }
+                            });
+                          }} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {/* Pagination UI */}
+                  {adminFilteredLogs.length > 0 && renderPagination(adminLogPage, setAdminLogPage, adminLogPerPage, setAdminLogPerPage, adminFilteredLogs.length)}
                 </div>
               </div>
             )}
@@ -1570,6 +1823,12 @@ export default function SweetieWorldApp() {
           <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
              <h3 className="text-xl font-black text-white mb-6 text-center">{editUserModal.mode === 'create' ? t.createUserTitle : t.editUserTitle}</h3>
              <div className="space-y-4">
+                {editUserModal.mode === 'edit' && (
+                  <div>
+                    <label className="block text-xs font-bold text-yellow-500 mb-1">{lang === 'en' ? 'Remark / Action Detail (Required)' : 'အက်ဒမင် မှတ်ချက် (User သို့ အသိပေးမည်) *မဖြစ်မနေထည့်ပါ'}</label>
+                    <input type="text" placeholder="..." required value={editUserRemark} onChange={e => setEditUserRemark(e.target.value)} className="w-full bg-red-900/30 border border-yellow-500/50 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Username</label>
                   <input type="text" value={editUserForm.username} onChange={e => setEditUserForm({...editUserForm, username: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
@@ -1602,7 +1861,7 @@ export default function SweetieWorldApp() {
                 </div>
              </div>
              <div className="flex gap-3 mt-6">
-               <button onClick={() => {setEditUserModal({isOpen: false, mode: 'create'}); setShowAuthPassword(false);}} className="flex-1 bg-zinc-800 text-white font-bold py-2.5 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">{t.cancelBtn}</button>
+               <button onClick={() => {setEditUserModal({isOpen: false, mode: 'create'}); setShowAuthPassword(false); setEditUserRemark('');}} className="flex-1 bg-zinc-800 text-white font-bold py-2.5 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">{t.cancelBtn}</button>
                <button onClick={handleAdminSaveUser} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-2.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">Save</button>
              </div>
           </div>
@@ -2101,3 +2360,10 @@ export default function SweetieWorldApp() {
     </div>
   );
 }
+
+const MessageSquareIcon = ({unreadCount}: {unreadCount: number}) => (
+  <div className="relative">
+    <MessageCircle className="w-4 h-4 text-[#fcd385]" />
+    {unreadCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-600 w-2.5 h-2.5 rounded-full border border-black animate-pulse"></span>}
+  </div>
+);
