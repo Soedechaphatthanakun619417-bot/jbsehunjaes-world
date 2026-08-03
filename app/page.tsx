@@ -110,7 +110,7 @@ const TRANSLATIONS = {
   mm: {
     loginBtn: "အကောင့်ဝင်ရန်", signUpBtn: "အကောင့်ဖွင့်ရန်", adminPanel: "Admin စာမျက်နှာ", logout: "အကောင့်မှထွက်ရန်", pts: "မှတ်",
     latestReleases: "နောက်ဆုံးတင်ထားသော ဇာတ်ကားများ", collection: "ဇာတ်ကားများ", episodes: "အပိုင်းများ", searchPlaceholder: "ဇာတ်ကားအမည် ရှာရန်...",
-    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "ငွေထည့်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
+    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "ပွိုင့်ဝယ်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
     forgotPwd: "စကားဝှက်မေ့နေပါသလား?", noAccount: "အကောင့်မရှိသေးဘူးလား?", hasAccount: "အကောင့်ရှိပြီးသားလား?", backTo: "နောက်သို့", 
     getpwd: "စကားဝှက်တောင်းမည်", buyPoints: "Point ဝယ်ယူရန်", watchBtn: "ဇာတ်ကားကြည့်ရန်နှိပ်ပါ", waitBtn: "အချိန်စောင့်ပါ",
     vipTitle: "VIP အဖွဲ့ဝင်", vipDesc: "Schedule မစောင့်ချင်ပါက VIP Member ဝင်ပြီး အပိုင်းအားလုံး ကြည့်ရှုနိုင်ပါသည်။", joinVip: "VIP ဝင်မည်",
@@ -120,7 +120,7 @@ const TRANSLATIONS = {
     balance: "သင့်လက်ကျန်:", unlockBtn: "Point ဖျက်၍ ဝင်မည်", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
     adminTabUsers: "အကောင့်ဖွင့်ထားသော User များ", adminTabPoints: "Point တောင်းဆိုမှုများ", adminTabHistory: "ငွေသွင်းမှတ်တမ်းများ", 
     adminTabSettings: "စနစ် အပြင်အဆင်များ", adminTabPromo: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", adminTabUpload: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", 
-    userMgmt: "အသုံးပြုသူများ စီမံရန်", searchUser: "Username သို့မဟုတ် Email ဖြင့်ရှာပါ...", searchPoint: "Username သို့မဟုတ် ID Code ဖြင့်ရှာပါ...", 
+    userMgmt: "အသုံးပြုသူများ စီမံရန်", searchUser: "Username (သို့) Email ရှာရန်...", searchPoint: "Username သို့မဟုတ် ID Code ဖြင့်ရှာပါ...", 
     createUser: "အကောင့်ဖွင့်ပေးရန်", pointReqs: "Point တောင်းဆိုမှုများ (Pending)", managePromoFaq: "ပရိုမိုးရှင်း နှင့် FAQ စီမံရန်", addCat: "အမျိုးအစား အသစ်ထည့်ရန်", 
     uploadVid: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", genSlots: "အပိုင်းများ ဖန်တီးရန်", saveBtn: "သိမ်းမည်", updateBtn: "ပြင်ဆင်မည်", titleEnPlaceholder: "ခေါင်းစဉ် (English)",
     titleMmPlaceholder: "ခေါင်းစဉ် (Myanmar)", descPlaceholder: "အကြောင်းအရာ စာသား (Body)", imgPlaceholder: "ပုံ Link",
@@ -136,7 +136,7 @@ const TRANSLATIONS = {
     payWarnTitle: "အရေးကြီးသတိပေးချက်", payWarnDesc: "ငွေလွှဲရာတွင် Description (မှတ်ချက်) နေရာ၌ ဘာမှမရေးပါနှင့်။",
     payWarnTime: "ငွေသွင်းထားသူများအနေဖြင့် မနက် ၁ နာရီမှ မနက် ၆ နာရီအတွင်း၊ နေ့ခင်း ၁၂ နာရီမှ ည ၉ နာရီအတွင်းသာ သွင်းပေးပါရန်။ ကျန်သောအချိန်များတွင် Admin မရှိပါသဖြင့် စောင့်ဆိုင်းပေးရပါမည်။",
     statusPending: "စောင့်ဆိုင်းဆဲ", statusSuccess: "အောင်မြင်ပါပြီ", statusRejected: "ငြင်းပယ်ခံရသည်",
-    changePwd: "စကားဝှက်ပြောင်းလဲရန်", contactUs: "ဆက်သွယ်ရန်", duplicateId: "ဒီ ငွေလွှဲ ID ကို အသုံးပြုပြီးသားဖြစ်နေပါသည် (Already used).", remarkLabel: "အကြောင်းပြချက်: ",
+    changePwd: "စကားဝှက်ပြောင်းလဲရန်", contactUs: "ဆက်သွယ်ရန်", duplicateId: "ဒီ ငွေလွှဲ ID ကို အသုံးပြုပြီးသားဖြစ်နေပါသည် (Already used Translation ID).", remarkLabel: "အကြောင်းပြချက်: ",
     createUserTitle: "အကောင့်သစ်ဖန်တီးရန်", editUserTitle: "အကောင့် ပြင်ဆင်ရန်", pointsInput: "Points (မှတ်)", role: "အဆင့်သတ်မှတ်ချက် (Role)",
     confirmDelTitle: "သေချာပြီလား?", confirmDelDesc: "ဤအချက်အလက်ကို ဖျက်ပစ်မည်မှာ သေချာပါသလား? ဖျက်ပြီးပါက ပြန်ယူ၍မရပါ။",
     confirmRejectTitle: "ပယ်ချရသည့် အကြောင်းရင်း", rejectPlaceholder: "အကြောင်းပြချက်ကို ရေးပါ...", 
@@ -203,6 +203,17 @@ export default function SweetieWorldApp() {
 
   // Platform Selector Modal for multiple links
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
+
+  // Pagination States အသစ်များ
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPerPage, setHistoryPerPage] = useState(10);
+  const [showsPage, setShowsPage] = useState(1);
+  const [showsPerPage, setShowsPerPage] = useState(10);
+
+  // Bulk Delete State
+  const [bulkDeleteDate, setBulkDeleteDate] = useState('');
 
   // --- Firebase Data Fetching ---
   useEffect(() => {
@@ -329,6 +340,29 @@ export default function SweetieWorldApp() {
     showToast(t.msgCopied);
   };
 
+  // Pagination UI Render Component
+  const renderPagination = (currentPage: number, setPage: (p: number) => void, itemsPerPage: number, setItemsPerPage: (p: number) => void, totalItems: number) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    return (
+      <div className="flex flex-wrap justify-between items-center mt-4 bg-black/40 p-3 rounded-xl border border-zinc-800 gap-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+          <span>{lang === 'en' ? 'Show' : 'ပြသရန်'}</span>
+          <select value={itemsPerPage} onChange={e => {setItemsPerPage(Number(e.target.value)); setPage(1);}} className="bg-black border border-zinc-700 rounded px-2 py-1 text-white outline-none cursor-pointer">
+            <option value={10}>10</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span>{lang === 'en' ? 'entries' : 'ခု'}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Prev</button>
+          <span className="text-xs font-bold text-zinc-400">{lang === 'en' ? 'Page' : 'စာမျက်နှာ'} {currentPage} / {totalPages}</span>
+          <button disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Next</button>
+        </div>
+      </div>
+    );
+  };
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -412,21 +446,30 @@ export default function SweetieWorldApp() {
 
   const handleAdminSaveUser = () => {
     if (editUserModal.mode === 'create') {
-      const exists = users.find(u => u.username === editUserForm.username || u.email === editUserForm.email);
+      const exists = users.find(u => u.username.toLowerCase() === editUserForm.username.trim().toLowerCase() || u.email.toLowerCase() === editUserForm.email.trim().toLowerCase());
       if (exists) return setAlertModal({ message: t.msgExists });
-      setUsers([...users, editUserForm]);
+      setUsers([{...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()}, ...users]);
     } else {
-      setUsers(users.map(u => u.username === editUserModal.oldUsername ? editUserForm : u));
-      if(currentUser?.username === editUserModal.oldUsername) setCurrentUser(editUserForm);
+      setUsers(users.map(u => u.username === editUserModal.oldUsername ? {...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()} : u));
+      if(currentUser?.username === editUserModal.oldUsername) setCurrentUser({...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()});
     }
     showToast(t.msgUserSaved);
     setEditUserModal({isOpen: false, mode: 'create'});
+    setShowAuthPassword(false);
   };
 
   const getRequiredPoints = (show: VideoCardData) => {
     const unreleasedCount = show.episodes.filter(ep => !ep.links || ep.links.length === 0).length;
     return unreleasedCount * (show.pointsPerEp ?? 20);
   };
+
+  // Bulk Delete Data calculation
+  const recordsToDelete = bulkDeleteDate ? pointRequests.filter(r => {
+    const reqD = new Date(r.date);
+    const selD = new Date(bulkDeleteDate);
+    selD.setHours(23, 59, 59, 999);
+    return reqD.getTime() <= selD.getTime();
+  }) : [];
 
   const filteredShows = shows.filter(s => {
     const matchCat = activeCategory === 'All' || s.category === activeCategory;
@@ -439,6 +482,7 @@ export default function SweetieWorldApp() {
     u.username.toLowerCase().includes(adminUserSearch.toLowerCase()) || 
     u.email.toLowerCase().includes(adminUserSearch.toLowerCase())
   );
+  const paginatedUsers = adminFilteredUsers.slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage);
 
   const adminPendingPoints = pointRequests.filter(p => p.status === 'pending');
   const adminFilteredPoints = adminPendingPoints.filter(p => 
@@ -446,10 +490,14 @@ export default function SweetieWorldApp() {
     p.idCode.toLowerCase().includes(adminPointSearch.toLowerCase())
   );
 
+  const adminFilteredHistory = pointRequests.filter(r => r.username.toLowerCase().includes(adminHistorySearch.toLowerCase()) || r.idCode.toLowerCase().includes(adminHistorySearch.toLowerCase()));
+  const paginatedHistory = adminFilteredHistory.slice((historyPage - 1) * historyPerPage, historyPage * historyPerPage);
+
   const adminUploadedShowsFiltered = shows.filter(s => 
     (s.title_en?.toLowerCase().includes(adminUploadedSearch.toLowerCase()) || 
      s.title_mm?.toLowerCase().includes(adminUploadedSearch.toLowerCase()))
   );
+  const paginatedShows = adminUploadedShowsFiltered.slice((showsPage - 1) * showsPerPage, showsPage * showsPerPage);
 
   const adminFilteredPromos = promotions.filter(p => 
     (p.title_en?.toLowerCase().includes(adminPromoSearch.toLowerCase()) || 
@@ -639,25 +687,52 @@ export default function SweetieWorldApp() {
               <div className="animate-fade-in space-y-6">
                  <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.userMgmt}</h3>
                  <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 overflow-x-auto font-sans">
-                   {adminFilteredUsers.map(u => (
-                      <div key={u.username} className="grid grid-cols-5 gap-4 items-center bg-black/40 p-4 rounded-xl border border-zinc-800 hover:border-[#4a1515] transition mb-2">
-                        <div className="col-span-2">
-                          <p className="text-sm font-bold text-white">{u.username}</p>
-                          <p className="text-xs text-zinc-400 mt-1">{u.email}</p>
-                        </div>
-                        <div><span className={`text-[11px] px-2 py-0.5 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900 text-red-200' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span></div>
-                        <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => {setEditUserForm({...u}); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition"><Edit className="w-4 h-4"/></button>
-                          {u.username !== currentUser.username && (
-                            <button onClick={() => setConfirmModal({
-                               message: t.confirmDelDesc,
-                               onConfirm: () => setUsers(users.filter(user => user.username !== u.username))
-                            })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
-                          )}
-                        </div>
+                   
+                   {/* User Search & Add User Section */}
+                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 min-w-[600px]">
+                      <div className="relative w-full sm:w-72">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        <input 
+                          type="text" placeholder={t.searchUser} value={adminUserSearch}
+                          onChange={e => {setAdminUserSearch(e.target.value); setUsersPage(1);}}
+                          className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
+                        />
                       </div>
-                    ))}
+                      <button onClick={() => {
+                        setEditUserForm({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
+                        setEditUserModal({isOpen: true, mode: 'create'});
+                      }} className="bg-[#fcd385] text-black px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-yellow-400 transition whitespace-nowrap">
+                        <UserPlus className="w-4 h-4" /> {t.createUser}
+                      </button>
+                   </div>
+
+                   <div className="min-w-[600px]">
+                     {paginatedUsers.length === 0 ? (
+                        <p className="text-zinc-500 text-sm py-4">No users found.</p>
+                     ) : paginatedUsers.map(u => (
+                        <div key={u.username} className="grid grid-cols-5 gap-4 items-center bg-black/40 p-4 rounded-xl border border-zinc-800 hover:border-[#4a1515] transition mb-2">
+                          <div className="col-span-2">
+                            <p className="text-sm font-bold text-white">{u.username}</p>
+                            <p className="text-xs text-zinc-400 mt-1">{u.email}</p>
+                          </div>
+                          <div><span className={`text-[11px] px-2 py-0.5 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900 text-red-200' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span></div>
+                          <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => {setEditUserForm({...u}); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition"><Edit className="w-4 h-4"/></button>
+                            {u.username !== currentUser.username && (
+                              <button onClick={() => setConfirmModal({
+                                 message: t.confirmDelDesc,
+                                 onConfirm: () => setUsers(users.filter(user => user.username !== u.username))
+                              })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                   </div>
+                   
+                   {/* Pagination UI */}
+                   {adminFilteredUsers.length > 0 && renderPagination(usersPage, setUsersPage, usersPerPage, setUsersPerPage, adminFilteredUsers.length)}
+
                  </div>
               </div>
             )}
@@ -717,21 +792,59 @@ export default function SweetieWorldApp() {
               <div className="animate-fade-in space-y-6">
                 <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabHistory}</h3>
                 <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
+                  
+                  {/* Bulk Delete Section */}
+                  <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-red-400 mb-1">Clear Old Records (On or Before)</label>
+                      <input 
+                        type="date" 
+                        value={bulkDeleteDate} 
+                        onChange={e => setBulkDeleteDate(e.target.value)} 
+                        className="bg-black/50 border border-red-900/50 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 w-full sm:w-auto outline-none"
+                      />
+                    </div>
+                    {bulkDeleteDate && (
+                       <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                         <span className="text-sm font-bold text-red-300 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-900/50">
+                           {recordsToDelete.length} records found
+                         </span>
+                         <button 
+                           disabled={recordsToDelete.length === 0}
+                           onClick={() => {
+                             setConfirmModal({
+                               message: `Are you sure you want to delete ${recordsToDelete.length} records? This action cannot be undone.`,
+                               onConfirm: () => {
+                                 const remaining = pointRequests.filter(r => !recordsToDelete.includes(r));
+                                 setPointRequests(remaining);
+                                 setBulkDeleteDate('');
+                                 showToast(`${recordsToDelete.length} records deleted.`);
+                               }
+                             })
+                           }}
+                           className="bg-red-700 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex items-center gap-2 shadow-lg"
+                         >
+                           <Trash2 className="w-4 h-4"/> Delete All Selected
+                         </button>
+                       </div>
+                    )}
+                  </div>
+
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                     <div className="relative w-full sm:w-64">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                       <input 
                         type="text" placeholder="Search User or Txn ID..." value={adminHistorySearch}
-                        onChange={e => setAdminHistorySearch(e.target.value)}
+                        onChange={e => {setAdminHistorySearch(e.target.value); setHistoryPage(1);}}
                         className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
                       />
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {pointRequests.filter(r => r.username.toLowerCase().includes(adminHistorySearch.toLowerCase()) || r.idCode.toLowerCase().includes(adminHistorySearch.toLowerCase())).length === 0 ? (
+                    {paginatedHistory.length === 0 ? (
                        <p className="text-zinc-500 text-sm py-4">No records found.</p>
                     ) : (
-                      pointRequests.filter(r => r.username.toLowerCase().includes(adminHistorySearch.toLowerCase()) || r.idCode.toLowerCase().includes(adminHistorySearch.toLowerCase())).map((req, i) => (
+                      paginatedHistory.map((req, i) => (
                         <div key={i} className="bg-black/40 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center border border-white/5 gap-3">
                           <div>
                             <p className="text-sm font-bold text-white mb-1">User: <span className="text-blue-400">{req.username}</span></p>
@@ -758,6 +871,8 @@ export default function SweetieWorldApp() {
                       ))
                     )}
                   </div>
+                  {/* Pagination UI */}
+                  {adminFilteredHistory.length > 0 && renderPagination(historyPage, setHistoryPage, historyPerPage, setHistoryPerPage, adminFilteredHistory.length)}
                 </div>
               </div>
             )}
@@ -1187,13 +1302,13 @@ export default function SweetieWorldApp() {
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                       <input 
                         type="text" placeholder="Search by Title..." value={adminUploadedSearch || ''}
-                        onChange={e => setAdminUploadedSearch(e.target.value)}
+                        onChange={e => {setAdminUploadedSearch(e.target.value); setShowsPage(1);}}
                         className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {adminUploadedShowsFiltered.length > 0 ? adminUploadedShowsFiltered.map(s => (
+                    {paginatedShows.length > 0 ? paginatedShows.map(s => (
                       <div key={s.id} className="bg-black/50 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
                          <div>
                             <div className="flex gap-3 items-start mb-2">
@@ -1219,6 +1334,8 @@ export default function SweetieWorldApp() {
                       <p className="text-zinc-500 text-xs py-2">No uploaded shows found.</p>
                     )}
                   </div>
+                  {/* Pagination UI */}
+                  {adminUploadedShowsFiltered.length > 0 && renderPagination(showsPage, setShowsPage, showsPerPage, setShowsPerPage, adminUploadedShowsFiltered.length)}
                 </div>
               </div>
             )}
