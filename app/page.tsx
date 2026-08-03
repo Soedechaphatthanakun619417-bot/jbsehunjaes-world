@@ -8,7 +8,8 @@ import {
   Play, Lock, Unlock, Search, User, Coins, Sparkles, X, Plus, Edit, Trash2, 
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
-  ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay
+  ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
+  Eye, EyeOff
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -187,6 +188,12 @@ export default function SweetieWorldApp() {
   const [promptModal, setPromptModal] = useState<{title: string, placeholder: string, onSubmit: (val: string) => void} | null>(null);
   const [promptInputValue, setPromptInputValue] = useState('');
   
+  // Password View States
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showPwdOld, setShowPwdOld] = useState(false);
+  const [showPwdNew, setShowPwdNew] = useState(false);
+  const [showPwdConfirm, setShowPwdConfirm] = useState(false);
+  
   // Password Change State
   const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
   const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
@@ -334,6 +341,7 @@ export default function SweetieWorldApp() {
       showToast(t.msgSuccess);
       setAuthModalOpen(false);
       setAuthForm({ username: '', email: '', password: '' });
+      setShowAuthPassword(false);
     } else if (authMode === 'login') {
       const inputUsernameOrEmail = authForm.username.trim().toLowerCase();
       const user = users.find(u => 
@@ -345,6 +353,7 @@ export default function SweetieWorldApp() {
         showToast(t.msgLoginSucc);
         setAuthModalOpen(false);
         setAuthForm({ username: '', email: '', password: '' });
+        setShowAuthPassword(false);
       } else {
         setAuthError(t.msgWrong);
       }
@@ -374,6 +383,7 @@ export default function SweetieWorldApp() {
     showToast("Password updated successfully!");
     setChangePwdModalOpen(false);
     setPwdForm({ old: '', new: '', confirm: '' });
+    setShowPwdOld(false); setShowPwdNew(false); setShowPwdConfirm(false);
   };
 
   const handlePointSubmit = (e: React.FormEvent) => {
@@ -1316,6 +1326,51 @@ export default function SweetieWorldApp() {
 
       {/* --- ALL ROOT LEVEL MODALS --- */}
 
+      {/* 3D Edit/Create User Modal (Admin Panel) */}
+      {editUserModal.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
+             <h3 className="text-xl font-black text-white mb-6 text-center">{editUserModal.mode === 'create' ? t.createUserTitle : t.editUserTitle}</h3>
+             <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Username</label>
+                  <input type="text" value={editUserForm.username} onChange={e => setEditUserForm({...editUserForm, username: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Email</label>
+                  <input type="email" value={editUserForm.email} onChange={e => setEditUserForm({...editUserForm, email: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">{t.password}</label>
+                  <div className="relative w-full">
+                     <input type={showAuthPassword ? "text" : "password"} value={editUserForm.password || ''} onChange={e => setEditUserForm({...editUserForm, password: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 pr-10 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                     <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+                        {showAuthPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                     </button>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">{t.pointsInput}</label>
+                    <input type="number" value={editUserForm.points} onChange={e => setEditUserForm({...editUserForm, points: Number(e.target.value)})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-zinc-400 mb-1">{t.role}</label>
+                    <select value={editUserForm.role} onChange={e => setEditUserForm({...editUserForm, role: e.target.value as 'admin'|'user'})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]">
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+             </div>
+             <div className="flex gap-3 mt-6">
+               <button onClick={() => {setEditUserModal({isOpen: false, mode: 'create'}); setShowAuthPassword(false);}} className="flex-1 bg-zinc-800 text-white font-bold py-2.5 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">{t.cancelBtn}</button>
+               <button onClick={handleAdminSaveUser} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-2.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">Save</button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* Platform Select 3D Modal */}
       {platformSelectModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
@@ -1401,11 +1456,11 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* 3D Password Change Modal */}
+      {/* 3D Password Change Modal (With Eye Icon) */}
       {changePwdModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
-             <button onClick={() => {setChangePwdModalOpen(false); setPwdForm({old:'', new:'', confirm:''});}} className="absolute top-4 right-4 text-white/50 hover:text-white"><X className="w-5 h-5" /></button>
+             <button onClick={() => {setChangePwdModalOpen(false); setPwdForm({old:'', new:'', confirm:''}); setShowPwdOld(false); setShowPwdNew(false); setShowPwdConfirm(false);}} className="absolute top-4 right-4 text-white/50 hover:text-white"><X className="w-5 h-5" /></button>
              <div className="w-12 h-12 rounded-full bg-yellow-900/50 flex items-center justify-center mx-auto mb-4 border border-yellow-500/30 shadow-inner">
                 <Key className="w-6 h-6 text-[#fcd385]" />
              </div>
@@ -1414,15 +1469,24 @@ export default function SweetieWorldApp() {
              <form onSubmit={handlePasswordUpdate} className="space-y-4">
                <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">{t.oldPwd}</label>
-                  <input type="password" required value={pwdForm.old} onChange={e => setPwdForm({...pwdForm, old: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                  <div className="relative w-full">
+                     <input type={showPwdOld ? "text" : "password"} required value={pwdForm.old} onChange={e => setPwdForm({...pwdForm, old: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 pr-10 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                     <button type="button" onClick={() => setShowPwdOld(!showPwdOld)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">{showPwdOld ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}</button>
+                  </div>
                </div>
                <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">{t.newPwd}</label>
-                  <input type="password" required value={pwdForm.new} onChange={e => setPwdForm({...pwdForm, new: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                  <div className="relative w-full">
+                     <input type={showPwdNew ? "text" : "password"} required value={pwdForm.new} onChange={e => setPwdForm({...pwdForm, new: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 pr-10 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                     <button type="button" onClick={() => setShowPwdNew(!showPwdNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">{showPwdNew ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}</button>
+                  </div>
                </div>
                <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">{t.confirmPwd}</label>
-                  <input type="password" required value={pwdForm.confirm} onChange={e => setPwdForm({...pwdForm, confirm: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                  <div className="relative w-full">
+                     <input type={showPwdConfirm ? "text" : "password"} required value={pwdForm.confirm} onChange={e => setPwdForm({...pwdForm, confirm: e.target.value})} className="w-full bg-black/50 border border-zinc-700 p-3 pr-10 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385] shadow-inner" />
+                     <button type="button" onClick={() => setShowPwdConfirm(!showPwdConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">{showPwdConfirm ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}</button>
+                  </div>
                </div>
                <button type="submit" className="w-full mt-2 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">Submit</button>
              </form>
@@ -1430,11 +1494,11 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* Auth Modal */}
+      {/* Auth Modal (With Eye Icon) */}
       {authModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
           <div className="bg-gradient-to-b from-[#3e1717] via-[#2b0303] to-[#1a0101] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
-            <button onClick={() => setAuthModalOpen(false)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
+            <button onClick={() => {setAuthModalOpen(false); setShowAuthPassword(false);}} className="absolute top-4 right-4 text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
             <h3 className="text-2xl font-black text-[#fcd385] mb-6 text-center tracking-wide drop-shadow-md">
               {authMode === 'login' ? t.loginBtn : authMode === 'register' ? t.signUpBtn : t.getpwd}
             </h3>
@@ -1445,7 +1509,12 @@ export default function SweetieWorldApp() {
                 <input type="email" required placeholder="Email (Gmail)" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black/40 border border-zinc-700/50 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
               )}
               {(authMode === 'login' || authMode === 'register') && (
-                <input type="password" required placeholder={t.password} value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} className="w-full bg-black/40 border border-zinc-700/50 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                <div className="relative w-full">
+                  <input type={showAuthPassword ? "text" : "password"} required placeholder={t.password} value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} className="w-full bg-black/40 border border-zinc-700/50 p-3 pr-10 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                  <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+                    {showAuthPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                  </button>
+                </div>
               )}
               <button type="submit" className={`w-full font-black py-3 rounded-xl shadow-[0_4px_0_rgba(0,0,0,0.5)] active:shadow-none active:translate-y-1 transition-all tracking-wide ${
                 authMode === 'register' ? 'border border-[#fcd385] text-[#fcd385] bg-black/50' : 'bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717]'
@@ -1454,11 +1523,11 @@ export default function SweetieWorldApp() {
             <div className="mt-6 text-center text-xs space-y-2 text-white/80">
               {authMode === 'login' ? (
                 <>
-                  <p className="hover:text-white cursor-pointer" onClick={() => {setAuthError(''); setAuthMode('forgot');}}>{t.forgotPwd}</p>
-                  <p>{t.noAccount} <span className="text-[#fcd385] font-bold cursor-pointer underline" onClick={() => {setAuthError(''); setAuthMode('register');}}>{t.signUpBtn}</span></p>
+                  <p className="hover:text-white cursor-pointer" onClick={() => {setAuthError(''); setAuthMode('forgot'); setShowAuthPassword(false);}}>{t.forgotPwd}</p>
+                  <p>{t.noAccount} <span className="text-[#fcd385] font-bold cursor-pointer underline" onClick={() => {setAuthError(''); setAuthMode('register'); setShowAuthPassword(false);}}>{t.signUpBtn}</span></p>
                 </>
               ) : (
-                <p>{t.backTo} <span className="text-[#fcd385] font-bold cursor-pointer underline" onClick={() => {setAuthError(''); setAuthMode('login');}}>{t.loginBtn}</span></p>
+                <p>{t.backTo} <span className="text-[#fcd385] font-bold cursor-pointer underline" onClick={() => {setAuthError(''); setAuthMode('login'); setShowAuthPassword(false);}}>{t.loginBtn}</span></p>
               )}
             </div>
           </div>
