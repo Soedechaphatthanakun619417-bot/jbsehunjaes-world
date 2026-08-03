@@ -110,7 +110,7 @@ const TRANSLATIONS = {
   mm: {
     loginBtn: "အကောင့်ဝင်ရန်", signUpBtn: "အကောင့်ဖွင့်ရန်", adminPanel: "Admin စာမျက်နှာ", logout: "အကောင့်မှထွက်ရန်", pts: "မှတ်",
     latestReleases: "နောက်ဆုံးတင်ထားသော ဇာတ်ကားများ", collection: "ဇာတ်ကားများ", episodes: "အပိုင်းများ", searchPlaceholder: "ဇာတ်ကားအမည် ရှာရန်...",
-    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "ပွိုင့်ဝယ်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
+    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "ငွေထည့်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
     forgotPwd: "စကားဝှက်မေ့နေပါသလား?", noAccount: "အကောင့်မရှိသေးဘူးလား?", hasAccount: "အကောင့်ရှိပြီးသားလား?", backTo: "နောက်သို့", 
     getpwd: "စကားဝှက်တောင်းမည်", buyPoints: "Point ဝယ်ယူရန်", watchBtn: "ဇာတ်ကားကြည့်ရန်နှိပ်ပါ", waitBtn: "အချိန်စောင့်ပါ",
     vipTitle: "VIP အဖွဲ့ဝင်", vipDesc: "Schedule မစောင့်ချင်ပါက VIP Member ဝင်ပြီး အပိုင်းအားလုံး ကြည့်ရှုနိုင်ပါသည်။", joinVip: "VIP ဝင်မည်",
@@ -136,7 +136,7 @@ const TRANSLATIONS = {
     payWarnTitle: "အရေးကြီးသတိပေးချက်", payWarnDesc: "ငွေလွှဲရာတွင် Description (မှတ်ချက်) နေရာ၌ ဘာမှမရေးပါနှင့်။",
     payWarnTime: "ငွေသွင်းထားသူများအနေဖြင့် မနက် ၁ နာရီမှ မနက် ၆ နာရီအတွင်း၊ နေ့ခင်း ၁၂ နာရီမှ ည ၉ နာရီအတွင်းသာ သွင်းပေးပါရန်။ ကျန်သောအချိန်များတွင် Admin မရှိပါသဖြင့် စောင့်ဆိုင်းပေးရပါမည်။",
     statusPending: "စောင့်ဆိုင်းဆဲ", statusSuccess: "အောင်မြင်ပါပြီ", statusRejected: "ငြင်းပယ်ခံရသည်",
-    changePwd: "စကားဝှက်ပြောင်းလဲရန်", contactUs: "ဆက်သွယ်ရန်", duplicateId: "ဒီ ငွေလွှဲ ID ကို အသုံးပြုပြီးသားဖြစ်နေပါသည် (Already used Translation ID).", remarkLabel: "အကြောင်းပြချက်: ",
+    changePwd: "စကားဝှက်ပြောင်းလဲရန်", contactUs: "ဆက်သွယ်ရန်", duplicateId: "ဒီ ငွေလွှဲ ID ကို အသုံးပြုပြီးသားဖြစ်နေပါသည် (Already used).", remarkLabel: "အကြောင်းပြချက်: ",
     createUserTitle: "အကောင့်သစ်ဖန်တီးရန်", editUserTitle: "အကောင့် ပြင်ဆင်ရန်", pointsInput: "Points (မှတ်)", role: "အဆင့်သတ်မှတ်ချက် (Role)",
     confirmDelTitle: "သေချာပြီလား?", confirmDelDesc: "ဤအချက်အလက်ကို ဖျက်ပစ်မည်မှာ သေချာပါသလား? ဖျက်ပြီးပါက ပြန်ယူ၍မရပါ။",
     confirmRejectTitle: "ပယ်ချရသည့် အကြောင်းရင်း", rejectPlaceholder: "အကြောင်းပြချက်ကို ရေးပါ...", 
@@ -545,7 +545,31 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* --- DESKTOP NAVIGATION --- */}
+      {/* --- MOBILE SIDEBAR MENU --- */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-[100] flex font-sans lg:hidden">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="relative w-64 bg-[#161616] h-full shadow-2xl flex flex-col border-r border-[#fcd385]/20 animate-slide-in">
+             <div className="flex justify-between items-center p-5 border-b border-[#fcd385]/20 bg-[#1a1a1a]">
+                <h3 className="text-lg font-black text-[#fcd385] tracking-wider italic">Menu</h3>
+                <button onClick={() => setSidebarOpen(false)} className="text-zinc-400 hover:text-white transition p-1"><X className="w-6 h-6"/></button>
+             </div>
+             <nav className="flex-1 overflow-y-auto p-4 space-y-3">
+                <button onClick={() => {setActiveTab('home'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'home' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Home className="w-5 h-5"/> {t.home}</button>
+                <button onClick={() => {setActiveTab('promo'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'promo' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Gift className="w-5 h-5"/> {t.promotions}</button>
+                <button onClick={() => {setActiveTab('faq'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'faq' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><HelpCircle className="w-5 h-5"/> {t.faq}</button>
+                
+                {currentUser?.role === 'admin' && (
+                  <button onClick={() => {setAdminDashboardOpen(true); setSidebarOpen(false);}} className="w-full mt-6 flex items-center gap-3 p-3 rounded-xl font-bold bg-red-900/50 text-red-200 border border-red-500/30 hover:bg-red-800 transition">
+                    <ShieldCheck className="w-5 h-5"/> {t.adminPanel}
+                  </button>
+                )}
+             </nav>
+          </div>
+        </div>
+      )}
+
+      {/* --- DESKTOP & MOBILE NAVIGATION HEADER --- */}
       <header className="sticky top-0 z-40 bg-[#161616]/95 backdrop-blur-md border-b border-zinc-800 px-4 py-3 flex flex-wrap gap-4 items-center justify-between shadow-lg">
         <div className="flex items-center gap-4 lg:gap-8">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-zinc-300 hover:text-white"><Menu className="w-7 h-7" /></button>
@@ -560,7 +584,7 @@ export default function SweetieWorldApp() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 bg-[#1f1f1f] border border-zinc-700 hover:border-[#fcd385]/50 rounded-lg px-2 py-1.5 transition cursor-pointer font-sans">
+          <div className="flex items-center gap-1 bg-[#1f1f1f] border border-zinc-700 hover:border-[#fcd385]/50 rounded-lg px-2 py-1.5 sm:px-2 sm:py-1.5 transition cursor-pointer font-sans shrink-0">
             <Globe className="w-4 h-4 text-[#fcd385]" />
             <select value={lang} onChange={(e) => setLang(e.target.value as 'mm' | 'en')} className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer">
               <option value="mm">မြန်မာ</option>
@@ -573,19 +597,21 @@ export default function SweetieWorldApp() {
           </div>
 
           {currentUser ? (
-            <div className="flex items-center gap-2 sm:gap-3 font-sans relative">
+            <div className="flex items-center gap-2 sm:gap-4 font-sans relative">
               {currentUser.role === 'admin' && (
-                <button onClick={() => setAdminDashboardOpen(true)} className="text-xs bg-gradient-to-r from-[#b30000] to-[#660000] hover:brightness-110 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-lg">
-                  <ShieldCheck className="w-4 h-4 hidden sm:block" /> Admin
+                <button onClick={() => setAdminDashboardOpen(true)} className="hidden sm:flex text-xs bg-gradient-to-r from-[#b30000] to-[#660000] hover:brightness-110 px-3 py-1.5 rounded-lg font-bold transition items-center gap-1 shadow-lg">
+                  <ShieldCheck className="w-4 h-4" /> Admin
                 </button>
               )}
-              <button onClick={() => {setPayStep('menu'); setPointModalOpen(true);}} className="flex items-center gap-1.5 bg-[#1f1f1f] border border-[#fcd385]/50 text-[#fcd385] px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
-                <Coins className="w-4 h-4" /> <span className="hidden sm:inline">{currentUser.points} {t.pts}</span>
+              
+              {/* BIGGER POINTS BUTTON */}
+              <button onClick={() => {setPayStep('menu'); setPointModalOpen(true);}} className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#2b0303] to-[#1a0101] border-2 border-[#fcd385] text-[#fcd385] px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm sm:text-base font-black shadow-[0_0_10px_rgba(252,211,133,0.3)] hover:brightness-110 transition shrink-0">
+                <Coins className="w-5 h-5 sm:w-5 sm:h-5 text-yellow-400" /> <span>{currentUser.points} {t.pts}</span>
               </button>
               
-              {/* User Dropdown Trigger */}
-              <div onClick={() => setUserMenuOpen(true)} className="cursor-pointer p-2 bg-[#1f1f1f] rounded-full hover:bg-red-900/50 transition">
-                 <User className="w-4 h-4 text-[#fcd385]" />
+              {/* BIGGER USER PROFILE BUTTON */}
+              <div onClick={() => setUserMenuOpen(true)} className="cursor-pointer p-2 sm:p-2 bg-[#fcd385] rounded-full hover:bg-yellow-400 transition shadow-[0_0_10px_rgba(252,211,133,0.4)] border-2 border-[#d4af37] flex items-center justify-center shrink-0">
+                 <User className="w-5 h-5 sm:w-5 sm:h-5 text-[#3e1717]" />
               </div>
             </div>
           ) : (
