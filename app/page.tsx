@@ -143,7 +143,7 @@ const TRANSLATIONS = {
   mm: {
     loginBtn: "အကောင့်ဝင်ရန်", signUpBtn: "အကောင့်ဖွင့်ရန်", adminPanel: "Admin စာမျက်နှာ", logout: "အကောင့်မှထွက်ရန်", pts: "မှတ်",
     latestReleases: "နောက်ဆုံးတင်ထားသော ဇာတ်ကားများ", collection: "ဇာတ်ကားများ", episodes: "အပိုင်းများ", searchPlaceholder: "ဇာတ်ကားအမည် ရှာရန်...",
-    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "ငွေထည့်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
+    home: "ပင်မစာမျက်နှာ", promotions: "ပရိုမိုးရှင်းများ", faq: "Point ဝယ်နည်း နှင့် အမေးအဖြေ", email: "အီးမေးလ် (သို့) Username", password: "စကားဝှက်", 
     forgotPwd: "စကားဝှက်မေ့နေပါသလား?", noAccount: "အကောင့်မရှိသေးဘူးလား?", hasAccount: "အကောင့်ရှိပြီးသားလား?", backTo: "နောက်သို့", 
     getpwd: "စကားဝှက်တောင်းမည်", buyPoints: "Point ဝယ်ယူရန်", watchBtn: "ဇာတ်ကားကြည့်ရန်နှိပ်ပါ", waitBtn: "အချိန်စောင့်ပါ",
     vipTitle: "VIP အဖွဲ့ဝင်", vipDesc: "Schedule မစောင့်ချင်ပါက VIP Member ဝင်ပြီး အပိုင်းအားလုံး ကြည့်ရှုနိုင်ပါသည်။", joinVip: "VIP ဝင်မည်",
@@ -2273,12 +2273,12 @@ export default function SweetieWorldApp() {
                        <p className="text-xs text-zinc-400 font-bold whitespace-pre-wrap">{lang === 'en' ? siteConfig.depositGuideEn : siteConfig.depositGuideMm}</p>
                        <form onSubmit={handlePointSubmit} className="space-y-4 pt-2">
                           <div>
-                            <label className="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
-                            <input type="number" min="1" required placeholder="e.g. 5000" value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                            <label className="block text-xs font-bold text-zinc-300 mb-1">{t.payTxnId} နံပါတ်အကုန်ရိုက်ထည့်ပေးပါ</label>
+                            <input type="text" required placeholder="e.g. 123456789" value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
                           </div>
-                          <div>
-                            <label className="block text-xs font-bold text-zinc-300 mb-1">{t.payTxnId} / Last 6 Digits</label>
-                            <input type="text" required placeholder="e.g. 123456" value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+			<div>
+                            <label className="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
+                            <input type="number" min="1" required placeholder="e.g. 1000" value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
                           </div>
                           <button type="submit" className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">{t.paySubmitBtn}</button>
                        </form>
