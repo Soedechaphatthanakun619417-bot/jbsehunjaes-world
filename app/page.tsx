@@ -306,13 +306,18 @@ export default function SweetieWorldApp() {
   const [showsPerPage, setShowsPerPage] = useState(10);
   const [adminLogPage, setAdminLogPage] = useState(1);
   const [adminLogPerPage, setAdminLogPerPage] = useState(10);
+  
   const [bulkDeleteDateFrom, setBulkDeleteDateFrom] = useState('');
   const [bulkDeleteDateTo, setBulkDeleteDateTo] = useState('');
-  const [adminLogBulkDate, setAdminLogBulkDate] = useState('');
+  
+  const [adminLogBulkDateFrom, setAdminLogBulkDateFrom] = useState('');
+  const [adminLogBulkDateTo, setAdminLogBulkDateTo] = useState('');
 
   const notiRef = useRef<HTMLDivElement>(null);
 
-  // --- INTERNAL COMPONENT FUNCTIONS ---
+  // ==========================================
+  // 2. HELPER FUNCTIONS
+  // ==========================================
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -369,32 +374,67 @@ export default function SweetieWorldApp() {
     );
   };
 
-  const handleExportCSV = () => {
-    if (pointRequests.length === 0) return showToast("No data to export.");
-    const headers = ["Date", "Username", "Provider", "Transaction ID", "Requested Amount", "Approved Amount", "Status", "Remark"];
-    const csvContent = [
-       headers.join(","),
-       ...pointRequests.map(r => [
-          `"${formatDateTime(r.date)}"`,
-          `"${r.username}"`,
-          `"${r.provider}"`,
-          `"${r.idCode}"`,
-          `"${r.requestedAmount || ''}"`,
-          `"${r.amount || ''}"`,
-          `"${r.status}"`,
-          `"${r.remark || ''}"`
-       ].join(","))
-    ].join("\n");
+  // ==========================================
+  // 3. USE EFFECTS
+  // ==========================================
+  useEffect(() => {
+    setIsClient(true);
+    const loadData = async () => {
+      try {
+        const fetchDoc = async (colName: string, setFn: any, defaultVal: any) => {
+           const snap = await getDoc(doc(db, "SiteData", colName));
+           if (snap.exists() && snap.data().data && snap.data().data.length > 0) { setFn(snap.data().data); } else if (defaultVal) { setFn(defaultVal); }
+        };
+        const snapConfig = await getDoc(doc(db, "SiteData", "siteConfig"));
+        if (snapConfig.exists() && snapConfig.data().data) {
+            let loadedData = snapConfig.data().data;
+            if (!loadedData.socialLinks) {
+               loadedData.socialLinks = [
+                  { id: '1', platform: 'Facebook', url: loadedData.fbLink || '#', logo: '' },
+                  { id: '2', platform: 'Telegram', url: loadedData.tgLink || '#', logo: '' },
+                  { id: '3', platform: 'Viber', url: loadedData.viberLink || '#', logo: '' }
+               ];
+            }
+            setSiteConfig(loadedData);
+        } else {
+            setSiteConfig(DEFAULT_CONFIG);
+        }
+        await fetchDoc("users", setUsers, INITIAL_USERS);
+        const showsSnap = await getDoc(doc(db, "SiteData", "shows"));
+        if (showsSnap.exists() && showsSnap.data().data && showsSnap.data().data.length > 0) {
+           const parsedShows = showsSnap.data().data;
+           const migratedShows = parsedShows.map((s: any) => ({
+              ...s, episodes: s.episodes.map((ep: any) => ({ ...ep, links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : []) }))
+           }));
+           setShows(migratedShows);
+        } else { setShows(INITIAL_SHOWS); }
+        await fetchDoc("categories", setCategories, INITIAL_CATEGORIES);
+        await fetchDoc("platforms", setPlatforms, INITIAL_PLATFORMS);
+        await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
+        await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
+        await fetchDoc("pointRequests", setPointRequests, []);
+        await fetchDoc("notifications", setNotifications, []);
+        await fetchDoc("adminLogs", setAdminLogs, []);
+        const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
+        if (providerSnap.exists() && providerSnap.data().data) { setPaymentProviders(providerSnap.data().data); } else { setPaymentProviders(INITIAL_PROVIDERS); }
+      } catch(e) { console.error("Firebase fetch error", e); } finally { setIsInitialLoad(false); }
+    };
+    loadData();
 
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `transaction_history_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    const handleClickOutside = (event: any) => { if (notiRef.current && !notiRef.current.contains(event.target)) { setNotiDropdownOpen(false); } };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isInitialLoad || users.length === 0) return;
+    const savedUser = localStorage.getItem('jbsehunjaes_auth');
+    if (savedUser && !currentUser) {
+      const found = users.find(u => u.username === savedUser);
+      if (found) setCurrentUser(found);
+      else localStorage.removeItem('jbsehunjaes_auth');
+    }
+  }, [isInitialLoad, users]);
 
   const syncLatestData = async () => {
     try {
@@ -423,6 +463,54 @@ export default function SweetieWorldApp() {
     } catch(e) {
       console.error("Sync error:", e);
     }
+  };
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    const interval = setInterval(() => { syncLatestData(); }, 30000); 
+    return () => clearInterval(interval);
+  }, [isInitialLoad]);
+
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
+
+  // ==========================================
+  // 4. ACTION HANDLERS
+  // ==========================================
+  const handleExportCSV = () => {
+    if (pointRequests.length === 0) return showToast("No data to export.");
+    const headers = ["Date", "Username", "Provider", "Transaction ID", "Requested Amount", "Approved Amount", "Status", "Remark"];
+    const csvContent = [
+       headers.join(","),
+       ...pointRequests.map(r => [
+          `"${formatDateTime(r.date)}"`,
+          `"${r.username}"`,
+          `"${r.provider}"`,
+          `"${r.idCode}"`,
+          `"${r.requestedAmount || ''}"`,
+          `"${r.amount || ''}"`,
+          `"${r.status}"`,
+          `"${r.remark || ''}"`
+       ].join(","))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transaction_history_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleAuthSubmit = (e: React.FormEvent) => {
@@ -543,85 +631,9 @@ export default function SweetieWorldApp() {
     return unreleasedCount * (show.pointsPerEp ?? 20);
   };
 
-  // --- USE EFFECTS FOR FETCHING AND SAVING ---
-  useEffect(() => {
-    setIsClient(true);
-    const loadData = async () => {
-      try {
-        const fetchDoc = async (colName: string, setFn: any, defaultVal: any) => {
-           const snap = await getDoc(doc(db, "SiteData", colName));
-           if (snap.exists() && snap.data().data && snap.data().data.length > 0) { setFn(snap.data().data); } else if (defaultVal) { setFn(defaultVal); }
-        };
-        const snapConfig = await getDoc(doc(db, "SiteData", "siteConfig"));
-        if (snapConfig.exists() && snapConfig.data().data) {
-            let loadedData = snapConfig.data().data;
-            if (!loadedData.socialLinks) {
-               loadedData.socialLinks = [
-                  { id: '1', platform: 'Facebook', url: loadedData.fbLink || '#', logo: '' },
-                  { id: '2', platform: 'Telegram', url: loadedData.tgLink || '#', logo: '' },
-                  { id: '3', platform: 'Viber', url: loadedData.viberLink || '#', logo: '' }
-               ];
-            }
-            setSiteConfig(loadedData);
-        } else {
-            setSiteConfig(DEFAULT_CONFIG);
-        }
-        await fetchDoc("users", setUsers, INITIAL_USERS);
-        const showsSnap = await getDoc(doc(db, "SiteData", "shows"));
-        if (showsSnap.exists() && showsSnap.data().data && showsSnap.data().data.length > 0) {
-           const parsedShows = showsSnap.data().data;
-           const migratedShows = parsedShows.map((s: any) => ({
-              ...s, episodes: s.episodes.map((ep: any) => ({ ...ep, links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : []) }))
-           }));
-           setShows(migratedShows);
-        } else { setShows(INITIAL_SHOWS); }
-        await fetchDoc("categories", setCategories, INITIAL_CATEGORIES);
-        await fetchDoc("platforms", setPlatforms, INITIAL_PLATFORMS);
-        await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
-        await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
-        await fetchDoc("pointRequests", setPointRequests, []);
-        await fetchDoc("notifications", setNotifications, []);
-        await fetchDoc("adminLogs", setAdminLogs, []);
-        const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
-        if (providerSnap.exists() && providerSnap.data().data) { setPaymentProviders(providerSnap.data().data); } else { setPaymentProviders(INITIAL_PROVIDERS); }
-      } catch(e) { console.error("Firebase fetch error", e); } finally { setIsInitialLoad(false); }
-    };
-    loadData();
-
-    const handleClickOutside = (event: any) => { if (notiRef.current && !notiRef.current.contains(event.target)) { setNotiDropdownOpen(false); } };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (isInitialLoad || users.length === 0) return;
-    const savedUser = localStorage.getItem('jbsehunjaes_auth');
-    if (savedUser && !currentUser) {
-      const found = users.find(u => u.username === savedUser);
-      if (found) setCurrentUser(found);
-      else localStorage.removeItem('jbsehunjaes_auth');
-    }
-  }, [isInitialLoad, users]);
-
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const interval = setInterval(() => { syncLatestData(); }, 30000); 
-    return () => clearInterval(interval);
-  }, [isInitialLoad]);
-
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
-
-  // --- COMPUTED DATA VARIABLES ---
+  // ==========================================
+  // 5. COMPUTED VARIABLES
+  // ==========================================
   const recordsToDelete = (bulkDeleteDateFrom && bulkDeleteDateTo) ? pointRequests.filter(r => {
     const reqD = new Date(r.date).getTime();
     const fromD = new Date(bulkDeleteDateFrom); fromD.setHours(0, 0, 0, 0);
@@ -629,8 +641,11 @@ export default function SweetieWorldApp() {
     return reqD >= fromD.getTime() && reqD <= toD.getTime();
   }) : [];
 
-  const logsToDelete = adminLogBulkDate ? adminLogs.filter(l => {
-    const logD = new Date(l.date); const selD = new Date(adminLogBulkDate); selD.setHours(23, 59, 59, 999); return logD.getTime() <= selD.getTime();
+  const logsToDelete = (adminLogBulkDateFrom && adminLogBulkDateTo) ? adminLogs.filter(l => {
+    const logD = new Date(l.date).getTime();
+    const fromD = new Date(adminLogBulkDateFrom); fromD.setHours(0, 0, 0, 0);
+    const toD = new Date(adminLogBulkDateTo); toD.setHours(23, 59, 59, 999);
+    return logD >= fromD.getTime() && logD <= toD.getTime();
   }) : [];
 
   const filteredShows = shows.filter(s => {
@@ -671,10 +686,13 @@ export default function SweetieWorldApp() {
     );
   }
 
+  // ==========================================
+  // 6. RENDER JSX
+  // ==========================================
   return (
     <div className="min-h-screen bg-[#111111] text-gray-100 pb-20" style={{ fontFamily: '"Georgia", "Times New Roman", "Myanmar Text", serif' }}>
       
-      {/* CSS For Right to Left Marquee */}
+      {/* CSS For Right to Left Marquee & Calendar Icon Invert */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes marqueeRTL {
           0% { transform: translateX(100vw); }
@@ -685,6 +703,11 @@ export default function SweetieWorldApp() {
           white-space: nowrap;
           animation: marqueeRTL 20s linear infinite;
           will-change: transform;
+        }
+        ::-webkit-calendar-picker-indicator {
+          filter: invert(1);
+          opacity: 0.7;
+          cursor: pointer;
         }
       `}} />
 
@@ -954,7 +977,6 @@ export default function SweetieWorldApp() {
                 </button>
                 <button onClick={() => {syncLatestData(); setAdminActiveTab('history')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'history' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Clock className="w-5 h-5"/> {t.adminTabHistory}</button>
                 
-                {/* NEW ADMIN LOGS TAB */}
                 <button onClick={() => {syncLatestData(); setAdminActiveTab('logs')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'logs' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Edit className="w-5 h-5"/> {t.adminTabLogs}</button>
 
                 <button onClick={() => setAdminActiveTab('settings')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'settings' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Settings className="w-5 h-5"/> {t.adminTabSettings}</button>
@@ -1100,28 +1122,34 @@ export default function SweetieWorldApp() {
                 </div>
                 <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
                   
-                  {/* Bulk Delete Section */}
+                  {/* Bulk Delete Section WITH CALENDAR FIX */}
                   <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
                     <div className="flex-1">
                       <label className="block text-xs font-bold text-red-400 mb-2">Delete Records (Date Range)</label>
                       <div className="flex flex-wrap items-center gap-2">
-                        <input 
-                          type="date" 
-                          value={bulkDeleteDateFrom} 
-                          onChange={e => setBulkDeleteDateFrom(e.target.value)} 
-                          className="bg-black/50 border border-red-900/50 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
-                        />
-                        <span className="text-zinc-500 font-bold text-xs">{lang === 'en' ? 'TO' : 'အထိ'}</span>
-                        <input 
-                          type="date" 
-                          value={bulkDeleteDateTo} 
-                          onChange={e => setBulkDeleteDateTo(e.target.value)} 
-                          className="bg-black/50 border border-red-900/50 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
-                        />
+                        <div className="relative w-full sm:w-auto">
+                          <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-red-400" />
+                          <input 
+                            type="date" 
+                            value={bulkDeleteDateFrom} 
+                            onChange={e => setBulkDeleteDateFrom(e.target.value)} 
+                            className="w-full bg-black/50 border border-red-900/50 pl-9 pr-3 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                          />
+                        </div>
+                        <span className="text-zinc-500 font-bold text-xs px-2">{lang === 'en' ? 'TO' : 'အထိ'}</span>
+                        <div className="relative w-full sm:w-auto">
+                          <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-red-400" />
+                          <input 
+                            type="date" 
+                            value={bulkDeleteDateTo} 
+                            onChange={e => setBulkDeleteDateTo(e.target.value)} 
+                            className="w-full bg-black/50 border border-red-900/50 pl-9 pr-3 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                          />
+                        </div>
                       </div>
                     </div>
                     {(bulkDeleteDateFrom && bulkDeleteDateTo) && (
-                       <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                       <div className="flex items-center gap-4 mt-2 sm:mt-0 w-full sm:w-auto justify-end">
                          <span className="text-sm font-bold text-red-300 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-900/50">
                            {recordsToDelete.length} records found
                          </span>
@@ -1201,19 +1229,34 @@ export default function SweetieWorldApp() {
                 <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{lang === 'en' ? 'Admin Action Logs' : 'အက်ဒမင် စီမံမှု မှတ်တမ်းများ'}</h3>
                 <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
                   
-                  {/* Bulk Delete Section */}
+                  {/* Bulk Delete Section WITH CALENDAR FIX */}
                   <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-red-400 mb-1">Clear Old Logs (On or Before)</label>
-                      <input 
-                        type="date" 
-                        value={adminLogBulkDate} 
-                        onChange={e => setAdminLogBulkDate(e.target.value)} 
-                        className="bg-black/50 border border-red-900/50 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 w-full sm:w-auto outline-none"
-                      />
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-red-400 mb-2">Clear Old Logs (Date Range)</label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative w-full sm:w-auto">
+                          <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-red-400" />
+                          <input 
+                            type="date" 
+                            value={adminLogBulkDateFrom} 
+                            onChange={e => setAdminLogBulkDateFrom(e.target.value)} 
+                            className="w-full bg-black/50 border border-red-900/50 pl-9 pr-3 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                          />
+                        </div>
+                        <span className="text-zinc-500 font-bold text-xs px-2">{lang === 'en' ? 'TO' : 'အထိ'}</span>
+                        <div className="relative w-full sm:w-auto">
+                          <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-red-400" />
+                          <input 
+                            type="date" 
+                            value={adminLogBulkDateTo} 
+                            onChange={e => setAdminLogBulkDateTo(e.target.value)} 
+                            className="w-full bg-black/50 border border-red-900/50 pl-9 pr-3 py-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {adminLogBulkDate && (
-                       <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                    {(adminLogBulkDateFrom && adminLogBulkDateTo) && (
+                       <div className="flex items-center gap-4 mt-2 sm:mt-0 w-full sm:w-auto justify-end">
                          <span className="text-sm font-bold text-red-300 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-900/50">
                            {logsToDelete.length} logs found
                          </span>
@@ -1225,7 +1268,8 @@ export default function SweetieWorldApp() {
                                onConfirm: () => {
                                  const remaining = adminLogs.filter(r => !logsToDelete.includes(r));
                                  setAdminLogs(remaining);
-                                 setAdminLogBulkDate('');
+                                 setAdminLogBulkDateFrom('');
+                                 setAdminLogBulkDateTo('');
                                  showToast(`${logsToDelete.length} logs deleted.`);
                                }
                              })
@@ -2052,7 +2096,7 @@ export default function SweetieWorldApp() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-red-500/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] transform transition-all scale-100">
              <div className="w-12 h-12 rounded-full bg-red-900/50 flex items-center justify-center mx-auto mb-4 border border-red-500/30 shadow-inner">
-                <Info className="w-6 h-6 text-[#fcd385]" />
+               <Info className="w-6 h-6 text-[#fcd385]" />
              </div>
              <p className="text-center text-white font-bold mb-6 leading-relaxed">{alertModal.message}</p>
              <button onClick={() => {
@@ -2193,275 +2237,6 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* Payment & History Modal */}
-      {pointModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md font-sans">
-          <div className={`bg-gradient-to-b from-[#3e0a0a] to-[#1a0101] border border-[#fcd385]/30 rounded-2xl w-full relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] ${payStep === 'form' ? 'max-w-4xl' : 'max-w-md'}`}>
-            <div className="flex items-center justify-between p-4 border-b border-[#fcd385]/20 bg-black/30 shadow-inner">
-              {payStep === 'menu' ? <div className="w-8"/> : (
-                <button onClick={() => {
-                  if(payStep === 'form') setPayStep('providers');
-                  else setPayStep('menu');
-                }} className="p-1 rounded-full text-[#fcd385]/70 hover:text-[#fcd385] hover:bg-[#fcd385]/10 transition"><ChevronLeft className="w-6 h-6" /></button>
-              )}
-              <h3 className="text-lg font-bold text-[#fcd385] tracking-wide">
-                {payStep === 'menu' ? t.buyPoints : payStep === 'providers' ? t.paySelectMethod : payStep === 'history' ? t.payMenuHistory : selectedProvider?.name}
-              </h3>
-              <button onClick={() => setPointModalOpen(false)} className="p-1 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"><X className="w-6 h-6" /></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
-              {payStep === 'menu' && (
-                <div className="flex gap-6 justify-center items-center py-10">
-                  <div className="flex flex-col items-center gap-3 cursor-pointer group" onClick={() => setPayStep('providers')}>
-                    <div className="w-20 h-20 rounded-full border border-[#fcd385] bg-gradient-to-b from-[#2b0303] to-[#1a0101] flex items-center justify-center shadow-[0_4px_15px_rgba(252,211,133,0.3)] group-hover:scale-105 transition-all">
-                      <Coins className="w-10 h-10 text-[#fcd385]" />
-                    </div>
-                    <span className="text-white font-bold text-sm drop-shadow-md">{t.payMenuDeposit}</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-3 cursor-pointer group" onClick={() => { syncLatestData(); setPayStep('history'); }}>
-                    <div className="w-20 h-20 rounded-full border border-[#fcd385] bg-gradient-to-b from-[#2b0303] to-[#1a0101] flex items-center justify-center shadow-[0_4px_15px_rgba(252,211,133,0.3)] group-hover:scale-105 transition-all">
-                      <Clock className="w-10 h-10 text-[#fcd385]" />
-                    </div>
-                    <span className="text-white font-bold text-sm drop-shadow-md">{t.payMenuHistory}</span>
-                  </div>
-                </div>
-              )}
-
-              {payStep === 'providers' && (
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="text-[#fcd385] text-sm font-bold mb-3 border-b border-white/10 pb-2">{t.payBank}</h4>
-                    <div className="space-y-2">
-                      {paymentProviders.banks.map((p: any) => (
-                        <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
-                          <div className="flex items-center gap-3">
-                            {p.logo ? (
-                               <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-lg" />
-                            ) : (
-                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
-                            )}
-                            <span className="text-white font-bold text-sm">{p.name}</span>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-[#fcd385]/50" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-[#fcd385] text-sm font-bold mb-3 border-b border-white/10 pb-2">{t.payEwallet}</h4>
-                    <div className="space-y-2">
-                      {paymentProviders.ewallets.map((p: any) => (
-                        <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
-                          <div className="flex items-center gap-3">
-                            {p.logo ? (
-                               <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-lg" />
-                            ) : (
-                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
-                            )}
-                            <span className="text-white font-bold text-sm">{p.name}</span>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-[#fcd385]/50" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {payStep === 'form' && selectedProvider && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                  <div className="space-y-5">
-                    <div className="bg-black/50 p-4 rounded-xl border border-white/10 text-center shadow-inner">
-                       <p className="text-sm font-bold text-[#fcd385] mb-4">Scan QR to Pay with {selectedProvider.name}</p>
-                       <img src={selectedProvider.qrImage || 'https://via.placeholder.com/200'} alt="QR Code" className="w-48 h-48 object-contain mx-auto rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.5)] border border-white/20" />
-                       
-                       {/* QR Code Download Button */}
-                       <div className="mt-4 flex justify-center">
-                          <button type="button" onClick={() => handleDownloadQR(selectedProvider.qrImage, selectedProvider.name)} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-[#fcd385] px-4 py-2 rounded-lg transition shadow-lg text-xs font-bold border border-zinc-700">
-                            <Download className="w-4 h-4"/> {t.downloadQR}
-                          </button>
-                       </div>
-
-                       {/* Account Number Section */}
-                       {selectedProvider.accountNo && (
-                         <div className="mt-5 p-3 bg-[#1f1f1f] rounded-lg border border-[#fcd385]/20 flex items-center justify-between">
-                            <div className="text-left">
-                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{t.payAccountNo}</p>
-                              <p className="text-base text-white font-black font-mono tracking-widest mt-1">{selectedProvider.accountNo}</p>
-                            </div>
-                            <button type="button" onClick={() => handleCopy(selectedProvider.accountNo)} className="bg-zinc-800 hover:bg-zinc-700 text-[#fcd385] p-2 rounded-lg transition shadow-lg">
-                              <Copy className="w-5 h-5"/>
-                            </button>
-                         </div>
-                       )}
-
-                    </div>
-                    <form onSubmit={handlePointSubmit} className="space-y-4">
-                      <div>
-                        <p className="text-xs text-[#fcd385] mb-2">{t.payTxnId}</p>
-                        <input type="text" required placeholder="Enter ID..." value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black/50 border border-white/20 p-3.5 rounded-xl text-white text-sm focus:border-[#fcd385] outline-none transition shadow-inner" />
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-xs text-[#fcd385] mb-2">{lang === 'en' ? 'Amount' : 'ငွေပမာဏ'}</p>
-                        <input type="number" min="1" required placeholder="Enter Amount..." value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black/50 border border-white/20 p-3.5 rounded-xl text-white text-sm focus:border-[#fcd385] outline-none transition shadow-inner" />
-                      </div>
-                      <button type="submit" className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e0a0a] font-black py-3.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-[0_0px_0_#a88621] active:translate-y-1 transition-all">{t.paySubmitBtn}</button>
-                    </form>
-                  </div>
-                  <div className="space-y-5">
-                     <div className="bg-black/40 p-5 rounded-xl border border-white/10 shadow-inner">
-                       <h4 className="text-[#fcd385] font-bold text-sm mb-3 border-b border-white/10 pb-2 flex items-center gap-2"><HelpCircle className="w-4 h-4"/> Deposit Guide</h4>
-                       <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                          {lang === 'en' ? siteConfig.depositGuideEn : siteConfig.depositGuideMm}
-                       </p>
-                     </div>
-                     <div className="bg-red-900/30 border border-red-500/50 p-5 rounded-xl shadow-inner">
-                       <h4 className="text-red-400 font-bold text-sm flex items-center gap-2 mb-3"><Info className="w-4 h-4"/> {t.payWarnTitle}</h4>
-                       <p className="text-sm text-red-200/90 leading-relaxed font-bold whitespace-pre-wrap">
-                          {lang === 'en' ? siteConfig.paymentWarningEn : siteConfig.paymentWarningMm}
-                       </p>
-                     </div>
-                  </div>
-                </div>
-              )}
-
-              {payStep === 'history' && (
-                <div className="space-y-3 animate-fade-in relative">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-[#fcd385] text-sm font-bold border-b border-white/10 pb-1">{t.payMenuHistory}</h4>
-                    <button onClick={syncLatestData} className="flex items-center gap-1.5 text-xs bg-black/50 border border-zinc-700 hover:border-[#fcd385] text-zinc-300 hover:text-[#fcd385] px-3 py-1.5 rounded-lg transition shadow">
-                      <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                    </button>
-                  </div>
-                  {pointRequests.filter(r => r.username === currentUser?.username).length === 0 ? (
-                     <p className="text-center text-white/50 text-sm py-10">No transaction history found.</p>
-                  ) : (
-                    pointRequests.filter(r => r.username === currentUser?.username).map((req, i) => (
-                      <div key={i} className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner">
-                         <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/5">
-                            <span className="text-xs text-white/60 font-mono">{formatDateTime(req.date)}</span>
-                            {req.status === 'pending' && <span className="flex items-center gap-1 text-[10px] bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded border border-yellow-500/30 font-bold uppercase"><Clock className="w-3 h-3"/> {t.statusPending}</span>}
-                            {req.status === 'approved' && <span className="flex items-center gap-1 text-[10px] bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-bold uppercase"><CheckCircle className="w-3 h-3"/> {t.statusSuccess}</span>}
-                            {req.status === 'rejected' && <span className="flex items-center gap-1 text-[10px] bg-red-900/50 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-bold uppercase"><XCircle className="w-3 h-3"/> {t.statusRejected}</span>}
-                         </div>
-                         <div className="flex justify-between items-end">
-                            <div>
-                               <p className="text-xs text-[#fcd385] mb-0.5">{req.provider}</p>
-                               <p className="text-sm text-white font-bold tracking-wider">{req.idCode}</p>
-                               {req.requestedAmount && <p className="text-[11px] text-emerald-400 font-bold mt-0.5">Req Amount: {req.requestedAmount}</p>}
-                               {req.remark && req.status === 'rejected' && (
-                                  <p className="text-[11px] text-red-300 mt-2 bg-red-950/80 p-2 rounded-lg border border-red-500/50 shadow-inner">
-                                    <span className="font-bold block mb-0.5 opacity-80">{t.remarkLabel}</span> {req.remark}
-                                  </p>
-                               )}
-                            </div>
-                            {req.amount && req.status === 'approved' && (
-                               <p className="text-lg font-black text-emerald-400">+{req.amount} Pts</p>
-                            )}
-                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Video Details Modal */}
-      {selectedShow && !vipModalShow && !scheduleAlert && !platformSelectModal && (
-        <div className="fixed inset-0 z-[50] flex items-center justify-center p-2 md:p-6 bg-black/90 backdrop-blur-md overflow-y-auto font-sans">
-          <div className="bg-[#161616] border border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl relative my-auto">
-            <button onClick={() => setSelectedShow(null)} className="absolute z-20 top-4 right-4 bg-black/70 p-2 rounded-full text-white hover:bg-red-600 transition"><X className="w-5 h-5" /></button>
-            <div className="relative h-48 md:h-72 w-full">
-              <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-[#161616]/40 to-transparent z-10" />
-              <img src={selectedShow.image} alt={selectedShow.title_en} className="w-full h-full object-cover opacity-50" />
-            </div>
-            <div className="px-5 md:px-8 pb-8 relative z-20 -mt-16 md:-mt-24">
-              <h2 className="text-2xl md:text-4xl font-black text-white mb-2">{lang === 'en' ? (selectedShow.title_en || selectedShow.title_mm) : (selectedShow.title_mm || selectedShow.title_en)}</h2>
-              <div className="flex gap-2 text-xs font-bold mb-4">
-                <span className="bg-[#fcd385] text-black px-2.5 py-1 rounded shadow">{selectedShow.category}</span>
-                <span className="bg-zinc-800 border border-zinc-700 text-white px-2.5 py-1 rounded">{selectedShow.totalEpisodes} {t.episodes}</span>
-              </div>
-              <p className="text-zinc-400 text-sm mb-8 leading-relaxed max-w-3xl">{selectedShow.description}</p>
-
-              <h3 className="text-lg font-bold text-white mb-4" style={{ fontFamily: '"Georgia", serif' }}>{t.episodes}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {selectedShow.episodes.map((ep, idx) => {
-                  const isUnlocked = currentUser?.vip || currentUser?.unlockedShows?.includes(selectedShow.id);
-                  const hasLinks = ep.links && ep.links.length > 0;
-                  return (
-                    <div key={idx} className="bg-[#1f1f1f] border border-zinc-800 p-3 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-[#fcd385]/40 transition shadow-inner">
-                      <span className="font-bold text-[#fcd385] text-sm">{ep.epLabel}</span>
-                      <button onClick={() => {
-                        if (!currentUser) return setAuthModalOpen(true);
-                        
-                        if (hasLinks) {
-                          if(ep.links.length === 1) {
-                             window.open(ep.links[0].url, '_blank');
-                          } else {
-                             setPlatformSelectModal({ ep, show: selectedShow });
-                          }
-                        } else {
-                          if (isUnlocked && selectedShow.vipTelegramLink) {
-                            window.open(selectedShow.vipTelegramLink, '_blank');
-                          } else {
-                            setScheduleAlert({ isOpen: true, date: ep.releaseDate, show: selectedShow });
-                          }
-                        }
-                      }} className={`w-full text-xs py-2 rounded-lg font-bold transition shadow-[0_3px_0_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-none ${hasLinks || isUnlocked ? 'bg-[#2b0303] text-[#fcd385] border border-[#fcd385]/30' : 'bg-zinc-800 text-zinc-400'}`}>
-                        {hasLinks || isUnlocked ? t.watchBtn : t.waitBtn}
-                      </button>
-                      {!hasLinks && !isUnlocked && ep.releaseDate && <span className="text-[10px] text-zinc-500 text-center">{ep.releaseDate}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* VIP BOX DYNAMIC RENDER */}
-              {(() => {
-                const isAlreadyUnlocked = currentUser?.vip || currentUser?.unlockedShows?.includes(selectedShow.id);
-                const isAllEpisodesAvailable = selectedShow.episodes.length > 0 && selectedShow.episodes.every(ep => ep.links && ep.links.length > 0);
-
-                if (isAllEpisodesAvailable) {
-                   return (
-                     <div className="mt-8 bg-black/40 border border-[#fcd385]/20 rounded-xl p-6 flex flex-col items-center justify-center text-center shadow-inner">
-                       <h4 className="font-bold text-[#fcd385] text-lg mb-1"><Sparkles className="w-5 h-5 inline mr-1 mb-1"/>{t.vipNotRequired}</h4>
-                       <p className="text-sm text-zinc-400">{t.allEpsAvailable}</p>
-                     </div>
-                   );
-                }
-
-                return (
-                  <div className="mt-8 bg-gradient-to-r from-[#2b0303] to-black border border-[#fcd385]/30 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                    <div>
-                      <h4 className="font-bold text-[#fcd385] flex items-center gap-2 text-lg">
-                        <Sparkles className="w-5 h-5"/> {isAlreadyUnlocked ? t.vipUnlockedTitle : t.vipTitle}
-                      </h4>
-                      <p className="text-sm text-zinc-300 mt-1">{isAlreadyUnlocked ? t.vipUnlockedDesc : t.vipDesc}</p>
-                    </div>
-                    <button onClick={() => { 
-                      if(!currentUser) { setAuthModalOpen(true); return; }
-                      if(isAlreadyUnlocked) {
-                        if(selectedShow.vipTelegramLink) window.open(selectedShow.vipTelegramLink, '_blank');
-                      } else {
-                        setVipModalShow(selectedShow); 
-                      }
-                    }} className={`px-6 py-2.5 rounded-xl font-black text-sm shadow-[0_4px_0_rgba(0,0,0,0.5)] active:shadow-none active:translate-y-1 transition-all whitespace-nowrap ${
-                      isAlreadyUnlocked ? 'bg-emerald-600 text-white border border-emerald-500/50' : 'bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717]'
-                    }`}>
-                      {isAlreadyUnlocked ? "Telegram သို့သွားရန်" : t.joinVip}
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Schedule Alert Modal */}
       {scheduleAlert && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
@@ -2478,47 +2253,6 @@ export default function SweetieWorldApp() {
               <button onClick={() => setScheduleAlert(null)} className="flex-1 bg-zinc-800 text-white font-bold py-2.5 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">OK</button>
               <button onClick={() => {setScheduleAlert(null); setVipModalShow(scheduleAlert.show);}} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-2.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">{t.joinVip}</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIP Unlock Modal */}
-      {vipModalShow && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
-          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/40 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] text-center">
-            <button onClick={() => setVipModalShow(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-            <Lock className="w-10 h-10 text-[#fcd385] mx-auto mb-3" />
-            <h3 className="text-xl font-black text-white mb-2" style={{ fontFamily: '"Georgia", serif' }}>{t.unlockAll}</h3>
-            <p className="text-sm text-zinc-400 mb-6">{t.unlockDesc}</p>
-            <div className="bg-black/50 p-4 rounded-xl border border-zinc-800 mb-6 shadow-inner">
-              <div className="flex justify-between text-sm mb-3"><span>{t.required}</span><span className="text-[#fcd385] font-bold">{getRequiredPoints(vipModalShow)} {t.pts}</span></div>
-              <div className="flex justify-between text-sm"><span>{t.balance}</span><span className="text-white font-bold">{currentUser?.points || 0} {t.pts}</span></div>
-            </div>
-            <button onClick={() => {
-               if(!currentUser || !vipModalShow) return;
-               const reqPoints = getRequiredPoints(vipModalShow);
-               if(currentUser.points >= reqPoints) {
-                 const updatedShows = currentUser.unlockedShows ? [...currentUser.unlockedShows, vipModalShow.id] : [vipModalShow.id];
-                 setUsers(users.map(u => u.username === currentUser.username ? { ...u, points: u.points - reqPoints, unlockedShows: updatedShows } : u));
-                 setCurrentUser({ ...currentUser, points: currentUser.points - reqPoints, unlockedShows: updatedShows });
-                 showToast(t.msgVipSuccess);
-                 setVipModalShow(null);
-                 if(vipModalShow.vipTelegramLink) window.open(vipModalShow.vipTelegramLink, '_blank');
-               } else {
-                 setAlertModal({ 
-                    message: `${t.msgNotEnough} ${reqPoints} ${t.pts}`,
-                    actionText: t.buyPoints,
-                    onAction: () => {
-                       setAlertModal(null);
-                       setVipModalShow(null);
-                       setPayStep('providers');
-                       setPointModalOpen(true);
-                    }
-                 });
-               }
-            }} className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-2">
-              <Unlock className="w-5 h-5"/> {t.unlockBtn}
-            </button>
           </div>
         </div>
       )}
