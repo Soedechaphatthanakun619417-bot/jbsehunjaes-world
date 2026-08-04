@@ -9,7 +9,7 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle, Link2, FileSpreadsheet
+  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle, Link2, FileSpreadsheet, ListVideo, Filter
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -36,7 +36,7 @@ interface EpisodeData { epLabel: string; links: EpLink[]; releaseDateRaw?: strin
 interface VideoCardData { id: string; title_en: string; title_mm: string; image: string; category: string; description: string; totalEpisodes: number; pointsPerEp: number; episodes: EpisodeData[]; vipTelegramLink?: string; }
 
 // History tracking for usage and admin bonuses
-interface UserHistoryLog { id: string; type: 'usage' | 'admin_bonus'; title: string; amount: number; date: string; }
+interface UserHistoryLog { id: string; type: 'usage' | 'admin_bonus' | 'buy_vip'; title: string; amount: number; date: string; }
 
 // User Data with createdAt, lastLoginAt, and pointHistory
 interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; createdAt?: string; lastLoginAt?: string; pointHistory?: UserHistoryLog[]; }
@@ -105,8 +105,8 @@ const TRANSLATIONS = {
     latestReleases: "Latest Releases", collection: "Collection", episodes: "Episodes", searchPlaceholder: "Search drama, movie...",
     home: "Home", promotions: "Promotions", faq: "FAQ & Guide", email: "Email or Username", password: "Password", 
     forgotPwd: "Forgot password?", noAccount: "Don't have an account?", hasAccount: "Already have an account?", backTo: "Back to", 
-    getpwd: "Get Password", buyPoints: "Buy Points", watchBtn: "Click to Watch", waitBtn: "Schedule Wait",
-    vipTitle: "VIP Member", vipDesc: "Join VIP to watch all episodes.", joinVip: "Join VIP",
+    getpwd: "Get Password", buyPoints: "Buy Points", watchBtn: "Click to Watch", waitBtn: "Wait for Schedule",
+    vipTitle: "VIP Member", vipDesc: "Join VIP to watch all episodes without waiting for the schedule.", joinVip: "Join VIP",
     vipUnlockedTitle: "VIP Unlocked", vipUnlockedDesc: "You have full VIP access to all episodes of this series.",
     vipNotRequired: "VIP Not Required", allEpsAvailable: "All episodes are available to watch.",
     unlockAll: "Unlock All Episodes", unlockDesc: "Points are required to unlock all episodes of this series.", required: "Required:",
@@ -271,6 +271,14 @@ export default function SweetieWorldApp() {
   const [vipModalShow, setVipModalShow] = useState<VideoCardData | null>(null);
   const [scheduleAlert, setScheduleAlert] = useState<{isOpen: boolean, date: string, show: VideoCardData} | null>(null);
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
+
+  // USER DETAIL MODAL HISTORY STATES
+  const [userDetailSearch, setUserDetailSearch] = useState('');
+  const [userDetailDateFrom, setUserDetailDateFrom] = useState('');
+  const [userDetailDateTo, setUserDetailDateTo] = useState('');
+  const [userDetailTypeFilter, setUserDetailTypeFilter] = useState('All'); 
+  const [userDetailHistoryPage, setUserDetailHistoryPage] = useState(1);
+  const [userDetailHistoryPerPage, setUserDetailHistoryPerPage] = useState(10);
 
   // ADMIN STATES
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
@@ -720,6 +728,41 @@ export default function SweetieWorldApp() {
   const myNotis = notifications.filter(n => n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const unreadNotiCount = myNotis.filter(n => !n.isRead).length;
 
+  // DERIVED DATA FOR USER DETAIL HISTORY
+  let combinedHistory: any[] = [];
+  if (userDetailModal) {
+      const userReqs = pointRequests.filter(p => p.username === userDetailModal.username).map(r => ({
+          id: r.id, date: r.date, type: 'Deposit', paymentType: r.provider, txnId: r.idCode, amount: r.amount || r.requestedAmount, status: r.status, remark: r.remark
+      }));
+      const userBonus = (userDetailModal.pointHistory || []).map(b => ({
+          id: b.id, date: b.date, 
+          type: b.type === 'admin_bonus' ? 'Admin Adjustment' : b.type === 'buy_vip' ? 'Buy VIP' : 'Usage',
+          paymentType: 'System', txnId: 'N/A', amount: b.amount, status: 'approved', remark: b.title
+      }));
+      combinedHistory = [...userReqs, ...userBonus].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      if (userDetailSearch) {
+          combinedHistory = combinedHistory.filter(h =>
+              (h.txnId && h.txnId.toLowerCase().includes(userDetailSearch.toLowerCase())) ||
+              (h.paymentType && h.paymentType.toLowerCase().includes(userDetailSearch.toLowerCase())) ||
+              (h.remark && h.remark.toLowerCase().includes(userDetailSearch.toLowerCase()))
+          );
+      }
+      if (userDetailTypeFilter !== 'All') {
+          combinedHistory = combinedHistory.filter(h => h.type === userDetailTypeFilter);
+      }
+      if (userDetailDateFrom && userDetailDateTo) {
+          combinedHistory = combinedHistory.filter(h => {
+              const hDate = new Date(h.date).getTime();
+              const fDate = new Date(userDetailDateFrom).setHours(0,0,0,0);
+              const tDate = new Date(userDetailDateTo).setHours(23,59,59,999);
+              return hDate >= fDate && hDate <= tDate;
+          });
+      }
+  }
+  const paginatedUserHistory = combinedHistory.slice((userDetailHistoryPage - 1) * userDetailHistoryPerPage, userDetailHistoryPage * userDetailHistoryPerPage);
+
+
   if (!isClient) return null;
 
   if (isInitialLoad) {
@@ -1069,7 +1112,7 @@ export default function SweetieWorldApp() {
                           <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
                           <div className="flex justify-end gap-2">
                             
-                            {/* NEW: View Detail Button */}
+                            {/* View Detail Button */}
                             <button onClick={() => setUserDetailModal(u)} className="p-2 bg-zinc-800 rounded text-emerald-400 hover:bg-zinc-700 transition" title="View Details"><Eye className="w-4 h-4"/></button>
 
                             <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition" title="Edit User"><Edit className="w-4 h-4"/></button>
@@ -1780,9 +1823,21 @@ export default function SweetieWorldApp() {
                       <div className="flex gap-2">
                         <input type="number" min="1" value={epCount || 1} onChange={e => setEpCount(Number(e.target.value))} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white flex-1 focus:outline-none focus:border-[#fcd385]" />
                         <button onClick={() => {
-                          const eps: EpisodeData[] = [];
-                          for(let i=1; i<=epCount; i++) eps.push({epLabel: `EP ${i}`, links: [], releaseDateRaw: '', releaseDate: ''});
-                          setNewVideo({...newVideo, totalEpisodes: epCount, episodes: eps, pointsPerEp: newVideo.pointsPerEp || 20});
+                          // PRESERVE EXISTING LINKS LOGIC
+                          const existingEps = newVideo.episodes || [];
+                          const newEps = [...existingEps];
+                          
+                          if (epCount > newEps.length) {
+                             // Add new empty slots
+                             for(let i = newEps.length + 1; i <= epCount; i++) {
+                                newEps.push({epLabel: `EP ${i}`, links: [], releaseDateRaw: '', releaseDate: ''});
+                             }
+                          } else if (epCount < newEps.length) {
+                             // Truncate if reduced
+                             newEps.length = epCount;
+                          }
+                          
+                          setNewVideo({...newVideo, totalEpisodes: epCount, episodes: newEps, pointsPerEp: newVideo.pointsPerEp || 20});
                         }} className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded-lg text-white font-bold transition">{t.genSlots}</button>
                       </div>
                     </div>
@@ -2063,29 +2118,115 @@ export default function SweetieWorldApp() {
 
       {/* --- ALL ROOT LEVEL MODALS --- */}
 
-      {/* NEW: 3D User Detail Info Modal */}
+      {/* Video Player Modal (Fixed for Viewing Uploaded Video & VIP Implementation) */}
+      {selectedShow && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
+           <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
+              <button onClick={() => setSelectedShow(null)} className="absolute top-4 right-4 text-white/50 hover:text-white z-10 bg-black/50 p-1 rounded-full"><X className="w-5 h-5"/></button>
+              <div className="h-48 sm:h-64 relative shrink-0">
+                 <img src={selectedShow.image} alt="cover" className="w-full h-full object-cover" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-[#161616] to-transparent"></div>
+                 <div className="absolute bottom-4 left-4 right-4">
+                   <h2 className="text-2xl font-black text-white drop-shadow-lg">{lang === 'en' ? (selectedShow.title_en || selectedShow.title_mm) : (selectedShow.title_mm || selectedShow.title_en)}</h2>
+                   <p className="text-sm text-[#fcd385] font-bold">{selectedShow.category} • {selectedShow.totalEpisodes} {t.episodes}</p>
+                 </div>
+              </div>
+              
+              <div className="p-5 flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                 <p className="text-sm text-zinc-300 mb-6">{selectedShow.description}</p>
+                 <h3 className="text-lg font-bold text-white mb-4 border-l-4 border-[#fcd385] pl-3">{t.episodes}</h3>
+                 
+                 {/* RECREATED EXACT EPISODE GRID FROM SCREENSHOT */}
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                   {selectedShow.episodes.map((ep, idx) => {
+                      const isReleased = ep.links && ep.links.length > 0;
+                      const isVipUnlocked = currentUser?.unlockedShows?.includes(selectedShow.id);
+                      return (
+                        <div key={idx} className="flex flex-col gap-1">
+                          <button onClick={() => {
+                             if(isReleased) {
+                                setPlatformSelectModal({ep, show: selectedShow});
+                             } else {
+                                if (isVipUnlocked) {
+                                   if (selectedShow.vipTelegramLink) {
+                                      window.open(selectedShow.vipTelegramLink, '_blank');
+                                   } else {
+                                      showToast("VIP Link not provided yet.");
+                                   }
+                                } else {
+                                   setScheduleAlert({isOpen: true, date: ep.releaseDate, show: selectedShow});
+                                }
+                             }
+                          }} className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-2 transition ${isReleased ? 'bg-[#1a1a1a] border-[#fcd385]/20 hover:border-[#fcd385]/50 text-white' : 'bg-[#1a1a1a] border-zinc-800 text-zinc-300 hover:bg-black/80'}`}>
+                             <span className="font-bold text-sm text-white mb-1">{ep.epLabel}</span>
+                             
+                             <div className={`text-xs px-3 py-1.5 rounded-md font-bold w-full text-center ${isReleased ? 'bg-[#3e0a0a] text-red-200' : isVipUnlocked ? 'bg-[#fcd385]/20 text-[#fcd385]' : 'bg-black/50 text-zinc-500'}`}>
+                                {isReleased ? t.watchBtn : isVipUnlocked ? (lang === 'en' ? 'Watch VIP' : 'VIP ကြည့်ရန်') : t.waitBtn}
+                             </div>
+                          </button>
+                          {!isReleased && ep.releaseDate && (
+                             <span className="text-[10px] text-zinc-500 text-center mt-1">{ep.releaseDate}</span>
+                          )}
+                        </div>
+                      )
+                   })}
+                 </div>
+
+                 {/* VIP BANNER SECTION FROM SCREENSHOT */}
+                 <div className="mt-8 pt-6 border-t border-zinc-800">
+                    {currentUser?.unlockedShows?.includes(selectedShow.id) ? (
+                       <div className="p-4 rounded-xl border border-[#fcd385]/50 bg-gradient-to-r from-[#3e1717] to-[#1a0101] flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div>
+                            <h4 className="text-[#fcd385] font-black flex items-center gap-2"><Sparkles className="w-5 h-5"/> {t.vipUnlockedTitle}</h4>
+                            <p className="text-zinc-300 text-xs sm:text-sm mt-1">{t.vipUnlockedDesc}</p>
+                          </div>
+                          {selectedShow.vipTelegramLink && (
+                             <a href={selectedShow.vipTelegramLink} target="_blank" rel="noreferrer" className="shrink-0 px-6 py-2 bg-[#fcd385] text-[#3e1717] font-black rounded-lg hover:bg-yellow-400 transition shadow-[0_0_15px_rgba(252,211,133,0.4)]">
+                                Watch on Telegram
+                             </a>
+                          )}
+                       </div>
+                    ) : getRequiredPoints(selectedShow) > 0 ? (
+                       <div className="p-4 rounded-xl border border-red-900/50 bg-gradient-to-r from-[#2b0303] to-[#1a0101] flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div>
+                             <h4 className="text-[#fcd385] font-black flex items-center gap-2"><Sparkles className="w-5 h-5"/> {t.vipTitle}</h4>
+                             <p className="text-zinc-300 text-xs sm:text-sm mt-1">{t.vipDesc}</p>
+                          </div>
+                          <button onClick={() => setVipModalShow(selectedShow)} className="shrink-0 px-6 py-2.5 bg-[#fcd385] text-[#3e1717] font-black rounded-lg hover:bg-yellow-400 transition shadow-[0_0_15px_rgba(252,211,133,0.2)]">
+                             {t.joinVip}
+                          </button>
+                       </div>
+                    ) : (
+                       <div className="p-4 rounded-xl border border-zinc-800 bg-black/50 text-center">
+                          <p className="text-zinc-400 text-sm font-bold">{t.allEpsAvailable}</p>
+                       </div>
+                    )}
+                 </div>
+
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* 3D User Detail Info Modal (Combined Table with Enhanced Filters) */}
       {userDetailModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
-          <div className="bg-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
              
              {/* Header */}
-             <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-[#1a1a1a] rounded-t-2xl">
+             <div className="p-5 border-b border-[#fcd385]/20 flex justify-between items-center bg-black/40">
                <h2 className="text-xl font-black text-[#fcd385] flex items-center gap-2"><User className="w-5 h-5"/> User Detail: {userDetailModal.username}</h2>
                <button onClick={() => setUserDetailModal(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
              </div>
 
              {/* Body - Scrollable */}
-             <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1 flex flex-col">
                
-               {/* Basic Info Grid */}
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               {/* Basic Info Grid (Updated with Last Login) */}
+               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                   <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-1">Username</p>
-                    <p className="text-sm font-bold text-white">{userDetailModal.username}</p>
-                  </div>
-                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-1">Email (Gmail)</p>
-                    <p className="text-sm font-bold text-white">{userDetailModal.email}</p>
+                    <p className="text-xs text-zinc-500 mb-1">Email</p>
+                    <p className="text-sm font-bold text-white truncate">{userDetailModal.email}</p>
                   </div>
                   <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
                     <p className="text-xs text-zinc-500 mb-1">Password</p>
@@ -2093,11 +2234,11 @@ export default function SweetieWorldApp() {
                   </div>
                   <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
                     <p className="text-xs text-zinc-500 mb-1">Registration Date</p>
-                    <p className="text-sm font-bold text-white">{formatDateTime(userDetailModal.createdAt || '') || 'N/A'}</p>
+                    <p className="text-xs font-bold text-white">{formatDateTime(userDetailModal.createdAt || '') || 'N/A'}</p>
                   </div>
                   <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-1">Last Login Date</p>
-                    <p className="text-sm font-bold text-white">{formatDateTime(userDetailModal.lastLoginAt || '') || 'N/A'}</p>
+                    <p className="text-xs text-zinc-500 mb-1">Last Login Date/Time</p>
+                    <p className="text-xs font-bold text-emerald-400">{formatDateTime(userDetailModal.lastLoginAt || '') || 'N/A'}</p>
                   </div>
                   <div className="bg-black/40 p-4 rounded-xl border border-[#fcd385]/30">
                     <p className="text-xs text-[#fcd385] mb-1">Total Balance</p>
@@ -2105,58 +2246,77 @@ export default function SweetieWorldApp() {
                   </div>
                </div>
 
-               {/* History Sections Grid */}
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  
-                  {/* Deposit History (Filtered from pointRequests) */}
-                  <div className="bg-[#1f1f1f] border border-zinc-800 rounded-xl overflow-hidden flex flex-col h-[400px]">
-                     <div className="bg-zinc-900 p-3 border-b border-zinc-800">
-                        <h3 className="font-bold text-emerald-400 text-sm flex items-center gap-2"><Download className="w-4 h-4"/> Point Deposit History</h3>
-                     </div>
-                     <div className="p-3 overflow-y-auto flex-1 space-y-2">
-                        {pointRequests.filter(p => p.username === userDetailModal.username).length === 0 ? (
-                           <p className="text-xs text-zinc-500 text-center py-4">No deposit records found.</p>
-                        ) : pointRequests.filter(p => p.username === userDetailModal.username).map(req => (
-                           <div key={req.id} className="bg-black p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 transition">
-                              <div className="flex justify-between items-start mb-1">
-                                 <span className="text-xs font-bold text-white">ID: <span className="text-[#fcd385] font-mono">{req.idCode}</span></span>
-                                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${req.status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' : req.status === 'rejected' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>{req.status}</span>
-                              </div>
-                              <div className="flex justify-between items-end mt-2">
-                                 <div>
-                                    <p className="text-[10px] text-zinc-400">{req.provider}</p>
-                                    <p className="text-[10px] text-zinc-500">{formatDateTime(req.date)}</p>
-                                 </div>
-                                 <p className="text-xs font-bold text-emerald-400">+{req.amount || req.requestedAmount} PTS</p>
-                              </div>
-                           </div>
-                        ))}
+               {/* Combined Table Section */}
+               <div className="bg-[#1f1f1f] border border-[#fcd385]/20 rounded-xl flex flex-col flex-1 shadow-inner">
+                  {/* Table Filters */}
+                  <div className="p-4 border-b border-zinc-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-black/40 rounded-t-xl">
+                     <h3 className="text-sm font-bold text-[#fcd385] flex items-center gap-2 w-full sm:w-auto"><ListVideo className="w-4 h-4"/> Transactions History</h3>
+                     <div className="flex-1 w-full flex flex-wrap gap-2 justify-end items-center">
+                       
+                       {/* TYPE DROPDOWN FILTER */}
+                       <div className="relative flex items-center bg-black border border-zinc-700 rounded-lg px-2">
+                         <Filter className="w-4 h-4 text-zinc-400" />
+                         <select value={userDetailTypeFilter} onChange={e => {setUserDetailTypeFilter(e.target.value); setUserDetailHistoryPage(1);}} className="bg-transparent pl-2 pr-4 py-2 text-xs text-white focus:outline-none cursor-pointer">
+                            <option value="All">All Types</option>
+                            <option value="Deposit">Deposit (Cash In)</option>
+                            <option value="Buy VIP">Buy VIP</option>
+                            <option value="Admin Adjustment">Admin Adjustment</option>
+                         </select>
+                       </div>
+
+                       <div className="relative flex-1 min-w-[200px]">
+                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                         <input type="text" placeholder="Search by Method, Txn ID, Remark..." value={userDetailSearch} onChange={e => {setUserDetailSearch(e.target.value); setUserDetailHistoryPage(1);}} className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <input type="date" value={userDetailDateFrom} onChange={e => {setUserDetailDateFrom(e.target.value); setUserDetailHistoryPage(1);}} className="bg-black border border-zinc-700 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                         <span className="text-zinc-500 text-xs">To</span>
+                         <input type="date" value={userDetailDateTo} onChange={e => {setUserDetailDateTo(e.target.value); setUserDetailHistoryPage(1);}} className="bg-black border border-zinc-700 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                       </div>
                      </div>
                   </div>
+                  {/* Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                       <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                          <tr>
+                             <th className="px-4 py-3">Date/Time</th>
+                             <th className="px-4 py-3">Type</th>
+                             <th className="px-4 py-3">Method</th>
+                             <th className="px-4 py-3">Txn ID</th>
+                             <th className="px-4 py-3 text-right">Amount</th>
+                             <th className="px-4 py-3 text-center">Status</th>
+                             <th className="px-4 py-3">Remark</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                         {paginatedUserHistory.length === 0 ? (
+                           <tr><td colSpan={7} className="text-center py-8 text-zinc-500">No records found.</td></tr>
+                         ) : paginatedUserHistory.map((h, i) => (
+                           <tr key={i} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                             <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(h.date)}</td>
+                             
+                             <td className="px-4 py-3 font-bold">
+                               <span className={`px-2 py-0.5 rounded ${h.type === 'Deposit' ? 'bg-emerald-900/30 text-emerald-400' : h.type === 'Buy VIP' ? 'bg-[#3e1717] text-[#fcd385]' : 'bg-purple-900/30 text-purple-400'}`}>
+                                  {h.type}
+                               </span>
+                             </td>
+                             <td className="px-4 py-3 text-blue-400 font-bold">{h.paymentType}</td>
 
-                  {/* Usage & Bonus History (From user.pointHistory) */}
-                  <div className="bg-[#1f1f1f] border border-zinc-800 rounded-xl overflow-hidden flex flex-col h-[400px]">
-                     <div className="bg-zinc-900 p-3 border-b border-zinc-800">
-                        <h3 className="font-bold text-blue-400 text-sm flex items-center gap-2"><Clock className="w-4 h-4"/> Usage & Admin Bonus History</h3>
-                     </div>
-                     <div className="p-3 overflow-y-auto flex-1 space-y-2">
-                        {(!userDetailModal.pointHistory || userDetailModal.pointHistory.length === 0) ? (
-                           <p className="text-xs text-zinc-500 text-center py-4">No usage or bonus records found.</p>
-                        ) : userDetailModal.pointHistory.map(log => (
-                           <div key={log.id} className="bg-black p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 transition">
-                              <div className="flex justify-between items-start mb-1">
-                                 <span className="text-xs font-bold text-white">{log.title}</span>
-                                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${log.type === 'admin_bonus' ? 'bg-purple-900/50 text-purple-400' : 'bg-blue-900/50 text-blue-400'}`}>{log.type.replace('_', ' ')}</span>
-                              </div>
-                              <div className="flex justify-between items-end mt-2">
-                                 <p className="text-[10px] text-zinc-500">{formatDateTime(log.date)}</p>
-                                 <p className={`text-xs font-bold ${log.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {log.amount > 0 ? '+' : ''}{log.amount} PTS
-                                 </p>
-                              </div>
-                           </div>
-                        ))}
-                     </div>
+                             <td className="px-4 py-3 font-mono text-zinc-400">{h.txnId}</td>
+                             <td className={`px-4 py-3 text-right font-bold ${h.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{h.amount > 0 ? '+' : ''}{h.amount}</td>
+                             <td className="px-4 py-3 text-center">
+                               <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${h.status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' : h.status === 'rejected' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>{h.status}</span>
+                             </td>
+                             <td className="px-4 py-3 max-w-[200px] truncate" title={h.remark || '-'}>{h.remark || '-'}</td>
+                           </tr>
+                         ))}
+                       </tbody>
+                    </table>
+                  </div>
+                  {/* Pagination */}
+                  <div className="p-4 border-t border-zinc-800">
+                     {combinedHistory.length > 0 && renderPagination(userDetailHistoryPage, setUserDetailHistoryPage, userDetailHistoryPerPage, setUserDetailHistoryPerPage, combinedHistory.length)}
                   </div>
                </div>
              </div>
@@ -2164,15 +2324,15 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* Point / Payment Modal */}
+      {/* Point / Payment Modal (3D Gradient Style) */}
       {pointModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
-          <div className="bg-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-lg p-0 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col max-h-[90vh]">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-lg p-0 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col max-h-[90vh] overflow-hidden">
              {/* Header */}
-             <div className="bg-[#1a1a1a] border-b border-zinc-800 p-4 flex justify-between items-center rounded-t-2xl">
+             <div className="bg-black/40 border-b border-[#fcd385]/20 p-4 flex justify-between items-center rounded-t-2xl">
                <div className="flex items-center gap-3">
                  {payStep !== 'menu' && (
-                   <button onClick={() => setPayStep(payStep === 'form' ? 'providers' : 'menu')} className="p-1.5 bg-black/50 hover:bg-black rounded-lg text-zinc-400 hover:text-white transition">
+                   <button onClick={() => setPayStep(payStep === 'form' ? 'providers' : 'menu')} className="p-1.5 bg-black/50 hover:bg-black rounded-lg text-[#fcd385] hover:text-white transition">
                      <ChevronLeft className="w-5 h-5"/>
                    </button>
                  )}
@@ -2189,14 +2349,14 @@ export default function SweetieWorldApp() {
                
                {payStep === 'menu' && (
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <button onClick={() => setPayStep('providers')} className="bg-gradient-to-br from-[#2b0303] to-[#1a0101] border border-[#fcd385]/30 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-[#fcd385] hover:shadow-[0_0_15px_rgba(252,211,133,0.2)] transition group">
-                      <div className="w-12 h-12 rounded-full bg-[#fcd385]/10 flex items-center justify-center group-hover:scale-110 transition">
+                   <button onClick={() => setPayStep('providers')} className="bg-gradient-to-br from-[#3e1717] to-[#1a0101] border border-[#fcd385]/30 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-[#fcd385] hover:shadow-[0_0_15px_rgba(252,211,133,0.2)] transition group">
+                      <div className="w-12 h-12 rounded-full bg-[#fcd385]/10 flex items-center justify-center group-hover:scale-110 transition border border-[#fcd385]/20">
                         <CreditCard className="w-6 h-6 text-[#fcd385]" />
                       </div>
                       <span className="font-bold text-white">{t.payMenuDeposit}</span>
                    </button>
-                   <button onClick={() => setPayStep('history')} className="bg-[#1f1f1f] border border-zinc-700 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-zinc-500 transition group">
-                      <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center group-hover:scale-110 transition">
+                   <button onClick={() => setPayStep('history')} className="bg-black/50 border border-zinc-700 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-zinc-500 transition group shadow-inner">
+                      <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center group-hover:scale-110 transition border border-zinc-800">
                         <Clock className="w-6 h-6 text-zinc-300" />
                       </div>
                       <span className="font-bold text-white">{t.payMenuHistory}</span>
@@ -2245,7 +2405,7 @@ export default function SweetieWorldApp() {
                       </div>
                     </div>
 
-                    <div className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex flex-col items-center text-center">
+                    <div className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex flex-col items-center text-center shadow-inner">
                       {selectedProvider.logo ? <img src={selectedProvider.logo} alt={selectedProvider.name} className="w-12 h-12 object-contain rounded-full bg-white p-1 mb-2" /> : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg mb-2 ${selectedProvider.color}`}>{selectedProvider.name[0]}</div>}
                       <h4 className="text-white font-bold mb-1">{selectedProvider.name}</h4>
                       
@@ -2262,21 +2422,21 @@ export default function SweetieWorldApp() {
                           <div className="bg-white p-2 rounded-xl border-4 border-[#fcd385]/30 shadow-lg">
                              <img src={selectedProvider.qrImage} alt="QR Code" className="w-40 h-40 object-cover rounded-lg" />
                           </div>
-                          <button onClick={() => handleDownloadQR(selectedProvider.qrImage, selectedProvider.name)} className="mt-3 text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg transition flex items-center gap-2">
+                          <button onClick={() => handleDownloadQR(selectedProvider.qrImage, selectedProvider.name)} className="mt-3 text-xs bg-zinc-800 hover:bg-[#fcd385] text-white hover:text-black px-4 py-2 rounded-lg transition flex items-center gap-2 font-bold">
                             <Download className="w-4 h-4"/> {t.downloadQR}
                           </button>
                         </div>
                       )}
                     </div>
 
-                    <div className="bg-[#1a1a1a] p-4 rounded-xl border border-zinc-800 space-y-4">
+                    <div className="bg-black/40 p-4 rounded-xl border border-zinc-800 space-y-4">
                        <p className="text-xs text-zinc-400 font-bold whitespace-pre-wrap">{lang === 'en' ? siteConfig.depositGuideEn : siteConfig.depositGuideMm}</p>
                        <form onSubmit={handlePointSubmit} className="space-y-4 pt-2">
                           <div>
                             <label className="block text-xs font-bold text-zinc-300 mb-1">{t.payTxnId} နံပါတ်အကုန်ရိုက်ထည့်ပေးပါ</label>
                             <input type="text" required placeholder="e.g. 123456789" value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
                           </div>
-			<div>
+                          <div>
                             <label className="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
                             <input type="number" min="1" required placeholder="e.g. 1000" value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
                           </div>
@@ -2291,7 +2451,7 @@ export default function SweetieWorldApp() {
                    {pointRequests.filter(r => r.username === currentUser?.username).length === 0 ? (
                      <p className="text-zinc-500 text-sm text-center py-6">No transaction history.</p>
                    ) : pointRequests.filter(r => r.username === currentUser?.username).map(req => (
-                     <div key={req.id} className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex justify-between items-center gap-4">
+                     <div key={req.id} className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex justify-between items-center gap-4 hover:border-zinc-700 transition">
                        <div>
                          <p className="text-xs text-zinc-400 mb-1">{req.provider}</p>
                          <p className="text-sm font-bold text-white mb-0.5">ID: <span className="font-mono text-[#fcd385]">{req.idCode}</span></p>
@@ -2553,6 +2713,82 @@ export default function SweetieWorldApp() {
               <button onClick={() => setScheduleAlert(null)} className="flex-1 bg-zinc-800 text-white font-bold py-2.5 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">OK</button>
               <button onClick={() => {setScheduleAlert(null); setVipModalShow(scheduleAlert.show);}} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-2.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">{t.joinVip}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW VIP PAYMENT MODAL */}
+      {vipModalShow && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)]">
+            <button onClick={() => setVipModalShow(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X className="w-5 h-5"/></button>
+            <div className="w-16 h-16 rounded-full bg-[#fcd385]/10 flex items-center justify-center mx-auto mb-4 border border-[#fcd385]/30 shadow-inner">
+               <Sparkles className="w-8 h-8 text-[#fcd385]" />
+            </div>
+            <h3 className="text-xl font-black text-white mb-2 text-center">{t.unlockAll}</h3>
+            <p className="text-sm text-zinc-400 mb-6 text-center">{t.unlockDesc}</p>
+            
+            <div className="bg-black/50 border border-zinc-800 rounded-xl p-4 mb-6">
+               <div className="flex justify-between items-center mb-2">
+                  <span className="text-zinc-400 text-sm">{t.required}</span>
+                  <span className="text-[#fcd385] font-black">{getRequiredPoints(vipModalShow)} {t.pts}</span>
+               </div>
+               <div className="flex justify-between items-center border-t border-zinc-800 pt-2">
+                  <span className="text-zinc-400 text-sm">{t.balance}</span>
+                  <span className={`${(currentUser?.points || 0) >= getRequiredPoints(vipModalShow) ? 'text-emerald-400' : 'text-red-400'} font-black`}>
+                     {currentUser?.points || 0} {t.pts}
+                  </span>
+               </div>
+            </div>
+
+            {currentUser ? (
+              <div className="flex gap-3">
+                <button onClick={() => setVipModalShow(null)} className="flex-1 bg-zinc-800 text-white font-bold py-3 rounded-xl shadow-[0_4px_0_#3f3f46] active:shadow-none active:translate-y-1 transition-all">{t.cancelBtn}</button>
+                <button onClick={() => {
+                   const cost = getRequiredPoints(vipModalShow);
+                   if (currentUser.points >= cost) {
+                      
+                      // NEW LOGIC: Record VIP Purchase in History
+                      const newLog: UserHistoryLog = {
+                         id: Date.now().toString(),
+                         type: 'buy_vip',
+                         title: vipModalShow.title_en || vipModalShow.title_mm || 'VIP Unlock',
+                         amount: -cost,
+                         date: new Date().toISOString()
+                      };
+
+                      const updatedUser = {
+                         ...currentUser,
+                         points: currentUser.points - cost,
+                         unlockedShows: [...(currentUser.unlockedShows || []), vipModalShow.id],
+                         pointHistory: [newLog, ...(currentUser.pointHistory || [])]
+                      };
+                      
+                      setUsers(users.map(u => u.username === currentUser.username ? updatedUser : u));
+                      setCurrentUser(updatedUser);
+                      setVipModalShow(null);
+                      showToast(t.msgVipSuccess);
+                   } else {
+                      setVipModalShow(null); // VIP Box ကို ချက်ချင်းပိတ်မယ်
+                      setAlertModal({ 
+                        message: `${t.msgNotEnough}${cost} PTS`,
+                        actionText: lang === 'en' ? 'Click to Buy Points' : 'Point ဝယ်ရန်နှိပ်ပါ',
+                        onAction: () => {
+                           setAlertModal(null);
+                           setPayStep('providers');
+                           setPointModalOpen(true);
+                        }
+                      });
+                   }
+                }} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-2">
+                   <Unlock className="w-4 h-4"/> {t.unlockBtn}
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => {setVipModalShow(null); setAuthMode('login'); setAuthModalOpen(true);}} className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">
+                 {t.loginBtn}
+              </button>
+            )}
           </div>
         </div>
       )}
