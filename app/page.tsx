@@ -2367,7 +2367,7 @@ export default function SweetieWorldApp() {
                              } else {
                                 if (isVipUnlocked) {
                                    if (selectedShow.vipTelegramLink) {
-                                      window.open(selectedShow.vipTelegramLink, '_blank');
+                                      handleGetTelegramLink(selectedShow.vipTelegramLink || '');
                                    } else {
                                       showToast("VIP Link not provided yet.");
                                    }
