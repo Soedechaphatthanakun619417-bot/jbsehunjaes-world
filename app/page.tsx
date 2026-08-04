@@ -35,10 +35,10 @@ interface EpLink { platform: string; url: string; }
 interface EpisodeData { epLabel: string; links: EpLink[]; releaseDateRaw?: string; releaseDate: string; }
 interface VideoCardData { id: string; title_en: string; title_mm: string; image: string; category: string; description: string; totalEpisodes: number; pointsPerEp: number; episodes: EpisodeData[]; vipTelegramLink?: string; }
 
-// NEW: Added history tracking for usage and admin bonuses
+// History tracking for usage and admin bonuses
 interface UserHistoryLog { id: string; type: 'usage' | 'admin_bonus'; title: string; amount: number; date: string; }
 
-// UPDATED: Added createdAt, lastLoginAt, and pointHistory
+// User Data with createdAt, lastLoginAt, and pointHistory
 interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; createdAt?: string; lastLoginAt?: string; pointHistory?: UserHistoryLog[]; }
 
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; requestedAmount?: number; remark?: string; }
@@ -257,7 +257,7 @@ export default function SweetieWorldApp() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
   const [contactFabOpen, setContactFabOpen] = useState(false);
-  const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null); // NEW: User Detail Modal State
+  const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null);
 
   // PAYMENT STATES
   const [pointModalOpen, setPointModalOpen] = useState(false);
@@ -526,7 +526,6 @@ export default function SweetieWorldApp() {
     if (authMode === 'register') {
       const exists = users.find(u => u.username.toLowerCase() === authForm.username.trim().toLowerCase() || u.email.toLowerCase() === authForm.email.trim().toLowerCase());
       if (exists) return setAuthError(t.msgExists);
-      // UPDATED: Added createdAt, lastLoginAt and pointHistory during registration
       const newUser: UserData = { 
         ...authForm, role: 'user', points: 0, vip: false, unlockedShows: [],
         createdAt: new Date().toISOString(),
@@ -548,7 +547,6 @@ export default function SweetieWorldApp() {
         u.password === authForm.password
       );
       if (user) {
-        // UPDATED: Update lastLoginAt upon login
         const updatedUser = { ...user, lastLoginAt: new Date().toISOString() };
         setUsers(users.map(u => u.username === updatedUser.username ? updatedUser : u));
         setCurrentUser(updatedUser);
@@ -627,7 +625,6 @@ export default function SweetieWorldApp() {
       };
       setUsers([newUser, ...users]);
     } else {
-      // UPDATED: Logic to capture Admin Bonus / Point edit in User's History
       const oldUser = users.find(u => u.username === editUserModal.oldUsername);
       let newPointHistory = oldUser?.pointHistory || [];
       
@@ -2162,6 +2159,156 @@ export default function SweetieWorldApp() {
                      </div>
                   </div>
                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Point / Payment Modal */}
+      {pointModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
+          <div className="bg-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-lg p-0 relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col max-h-[90vh]">
+             {/* Header */}
+             <div className="bg-[#1a1a1a] border-b border-zinc-800 p-4 flex justify-between items-center rounded-t-2xl">
+               <div className="flex items-center gap-3">
+                 {payStep !== 'menu' && (
+                   <button onClick={() => setPayStep(payStep === 'form' ? 'providers' : 'menu')} className="p-1.5 bg-black/50 hover:bg-black rounded-lg text-zinc-400 hover:text-white transition">
+                     <ChevronLeft className="w-5 h-5"/>
+                   </button>
+                 )}
+                 <h3 className="text-lg font-black text-[#fcd385] uppercase tracking-wider flex items-center gap-2">
+                   <Coins className="w-5 h-5" /> 
+                   {payStep === 'menu' ? 'Points Center' : payStep === 'providers' ? t.paySelectMethod : payStep === 'form' ? t.payMenuDeposit : t.payMenuHistory}
+                 </h3>
+               </div>
+               <button onClick={() => {setPointModalOpen(false); setPayStep('menu');}} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+             </div>
+
+             {/* Body */}
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+               
+               {payStep === 'menu' && (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <button onClick={() => setPayStep('providers')} className="bg-gradient-to-br from-[#2b0303] to-[#1a0101] border border-[#fcd385]/30 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-[#fcd385] hover:shadow-[0_0_15px_rgba(252,211,133,0.2)] transition group">
+                      <div className="w-12 h-12 rounded-full bg-[#fcd385]/10 flex items-center justify-center group-hover:scale-110 transition">
+                        <CreditCard className="w-6 h-6 text-[#fcd385]" />
+                      </div>
+                      <span className="font-bold text-white">{t.payMenuDeposit}</span>
+                   </button>
+                   <button onClick={() => setPayStep('history')} className="bg-[#1f1f1f] border border-zinc-700 p-6 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-zinc-500 transition group">
+                      <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center group-hover:scale-110 transition">
+                        <Clock className="w-6 h-6 text-zinc-300" />
+                      </div>
+                      <span className="font-bold text-white">{t.payMenuHistory}</span>
+                   </button>
+                 </div>
+               )}
+
+               {payStep === 'providers' && (
+                 <div className="space-y-6">
+                   {paymentProviders.banks.length > 0 && (
+                     <div>
+                       <p className="text-xs text-zinc-500 font-bold mb-3 uppercase tracking-wider">{t.payBank}</p>
+                       <div className="grid grid-cols-2 gap-3">
+                         {paymentProviders.banks.map(p => (
+                           <button key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="bg-black/50 border border-zinc-800 hover:border-[#fcd385]/50 p-4 rounded-xl flex flex-col items-center gap-2 transition">
+                             {p.logo ? <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded-full bg-white p-1" /> : <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${p.color}`}>{p.name[0]}</div>}
+                             <span className="text-xs font-bold text-white">{p.name}</span>
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                   {paymentProviders.ewallets.length > 0 && (
+                     <div>
+                       <p className="text-xs text-zinc-500 font-bold mb-3 uppercase tracking-wider">{t.payEwallet}</p>
+                       <div className="grid grid-cols-2 gap-3">
+                         {paymentProviders.ewallets.map(p => (
+                           <button key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="bg-black/50 border border-zinc-800 hover:border-[#fcd385]/50 p-4 rounded-xl flex flex-col items-center gap-2 transition">
+                             {p.logo ? <img src={p.logo} alt={p.name} className="w-10 h-10 object-contain rounded-full bg-white p-1" /> : <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${p.color}`}>{p.name[0]}</div>}
+                             <span className="text-xs font-bold text-white">{p.name}</span>
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </div>
+               )}
+
+               {payStep === 'form' && selectedProvider && (
+                 <div className="space-y-5">
+                    {/* Warning Note */}
+                    <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-xl flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-red-400 mb-1">{lang === 'en' ? siteConfig.paymentWarningEn : siteConfig.paymentWarningMm}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex flex-col items-center text-center">
+                      {selectedProvider.logo ? <img src={selectedProvider.logo} alt={selectedProvider.name} className="w-12 h-12 object-contain rounded-full bg-white p-1 mb-2" /> : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg mb-2 ${selectedProvider.color}`}>{selectedProvider.name[0]}</div>}
+                      <h4 className="text-white font-bold mb-1">{selectedProvider.name}</h4>
+                      
+                      {selectedProvider.accountNo && (
+                        <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-700 mt-2">
+                          <span className="text-sm text-zinc-300">{t.payAccountNo}:</span>
+                          <span className="font-mono text-[#fcd385] font-bold">{selectedProvider.accountNo}</span>
+                          <button onClick={() => handleCopy(selectedProvider.accountNo)} className="text-blue-400 hover:text-blue-300 ml-2"><Copy className="w-4 h-4"/></button>
+                        </div>
+                      )}
+
+                      {selectedProvider.qrImage && (
+                        <div className="mt-4 flex flex-col items-center">
+                          <div className="bg-white p-2 rounded-xl border-4 border-[#fcd385]/30 shadow-lg">
+                             <img src={selectedProvider.qrImage} alt="QR Code" className="w-40 h-40 object-cover rounded-lg" />
+                          </div>
+                          <button onClick={() => handleDownloadQR(selectedProvider.qrImage, selectedProvider.name)} className="mt-3 text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg transition flex items-center gap-2">
+                            <Download className="w-4 h-4"/> {t.downloadQR}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-[#1a1a1a] p-4 rounded-xl border border-zinc-800 space-y-4">
+                       <p className="text-xs text-zinc-400 font-bold whitespace-pre-wrap">{lang === 'en' ? siteConfig.depositGuideEn : siteConfig.depositGuideMm}</p>
+                       <form onSubmit={handlePointSubmit} className="space-y-4 pt-2">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
+                            <input type="number" min="1" required placeholder="e.g. 5000" value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-300 mb-1">{t.payTxnId} / Last 6 Digits</label>
+                            <input type="text" required placeholder="e.g. 123456" value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                          </div>
+                          <button type="submit" className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">{t.paySubmitBtn}</button>
+                       </form>
+                    </div>
+                 </div>
+               )}
+
+               {payStep === 'history' && (
+                 <div className="space-y-3">
+                   {pointRequests.filter(r => r.username === currentUser?.username).length === 0 ? (
+                     <p className="text-zinc-500 text-sm text-center py-6">No transaction history.</p>
+                   ) : pointRequests.filter(r => r.username === currentUser?.username).map(req => (
+                     <div key={req.id} className="bg-black/40 border border-zinc-800 p-4 rounded-xl flex justify-between items-center gap-4">
+                       <div>
+                         <p className="text-xs text-zinc-400 mb-1">{req.provider}</p>
+                         <p className="text-sm font-bold text-white mb-0.5">ID: <span className="font-mono text-[#fcd385]">{req.idCode}</span></p>
+                         {req.requestedAmount && <p className="text-[11px] text-zinc-300 font-bold mb-1">Amount: {req.requestedAmount}</p>}
+                         {req.remark && <p className="text-[10px] text-red-300 italic mb-1">Reason: {req.remark}</p>}
+                         <p className="text-[10px] text-zinc-600">{formatDateTime(req.date)}</p>
+                       </div>
+                       <div className="shrink-0 text-right">
+                         {req.status === 'pending' && <span className="text-[10px] bg-yellow-900/50 text-yellow-400 px-3 py-1.5 rounded-lg font-bold uppercase border border-yellow-700/50">{t.statusPending}</span>}
+                         {req.status === 'approved' && <div className="flex flex-col items-end gap-1"><span className="text-[10px] bg-emerald-900/50 text-emerald-400 px-3 py-1.5 rounded-lg font-bold uppercase border border-emerald-700/50">{t.statusSuccess}</span><span className="text-xs font-bold text-emerald-400">+{req.amount}</span></div>}
+                         {req.status === 'rejected' && <span className="text-[10px] bg-red-900/50 text-red-400 px-3 py-1.5 rounded-lg font-bold uppercase border border-red-700/50">{t.statusRejected}</span>}
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               )}
+               
              </div>
           </div>
         </div>
