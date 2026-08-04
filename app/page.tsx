@@ -34,7 +34,13 @@ const db = getFirestore(app);
 interface EpLink { platform: string; url: string; }
 interface EpisodeData { epLabel: string; links: EpLink[]; releaseDateRaw?: string; releaseDate: string; }
 interface VideoCardData { id: string; title_en: string; title_mm: string; image: string; category: string; description: string; totalEpisodes: number; pointsPerEp: number; episodes: EpisodeData[]; vipTelegramLink?: string; }
-interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; }
+
+// NEW: Added history tracking for usage and admin bonuses
+interface UserHistoryLog { id: string; type: 'usage' | 'admin_bonus'; title: string; amount: number; date: string; }
+
+// UPDATED: Added createdAt, lastLoginAt, and pointHistory
+interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; createdAt?: string; lastLoginAt?: string; pointHistory?: UserHistoryLog[]; }
+
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; requestedAmount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
 interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
@@ -89,8 +95,8 @@ const INITIAL_SHOWS: VideoCardData[] = [
 ];
 
 const INITIAL_USERS: UserData[] = [
-  { username: 'admin', email: 'admin@gmail.com', password: '123', role: 'admin', points: 999999, vip: false, unlockedShows: [] },
-  { username: 'testuser', email: 'user@gmail.com', password: '123', role: 'user', points: 200, vip: false, unlockedShows: [] }
+  { username: 'admin', email: 'admin@gmail.com', password: '123', role: 'admin', points: 999999, vip: false, unlockedShows: [], createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString(), pointHistory: [] },
+  { username: 'testuser', email: 'user@gmail.com', password: '123', role: 'user', points: 200, vip: false, unlockedShows: [], createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString(), pointHistory: [] }
 ];
 
 const TRANSLATIONS = {
@@ -251,6 +257,7 @@ export default function SweetieWorldApp() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
   const [contactFabOpen, setContactFabOpen] = useState(false);
+  const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null); // NEW: User Detail Modal State
 
   // PAYMENT STATES
   const [pointModalOpen, setPointModalOpen] = useState(false);
@@ -277,7 +284,7 @@ export default function SweetieWorldApp() {
   const [adminFaqSearch, setAdminFaqSearch] = useState('');
   const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
   const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
-  const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
+  const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: [], createdAt: '', lastLoginAt: '', pointHistory: []});
   const [editUserRemark, setEditUserRemark] = useState(''); 
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
@@ -519,7 +526,13 @@ export default function SweetieWorldApp() {
     if (authMode === 'register') {
       const exists = users.find(u => u.username.toLowerCase() === authForm.username.trim().toLowerCase() || u.email.toLowerCase() === authForm.email.trim().toLowerCase());
       if (exists) return setAuthError(t.msgExists);
-      const newUser: UserData = { ...authForm, role: 'user', points: 0, vip: false, unlockedShows: [] };
+      // UPDATED: Added createdAt, lastLoginAt and pointHistory during registration
+      const newUser: UserData = { 
+        ...authForm, role: 'user', points: 0, vip: false, unlockedShows: [],
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+        pointHistory: []
+      };
       setUsers([...users, newUser]);
       setCurrentUser(newUser);
       if (rememberMe) localStorage.setItem('jbsehunjaes_auth', newUser.username);
@@ -535,8 +548,12 @@ export default function SweetieWorldApp() {
         u.password === authForm.password
       );
       if (user) {
-        setCurrentUser(user);
-        if (rememberMe) localStorage.setItem('jbsehunjaes_auth', user.username);
+        // UPDATED: Update lastLoginAt upon login
+        const updatedUser = { ...user, lastLoginAt: new Date().toISOString() };
+        setUsers(users.map(u => u.username === updatedUser.username ? updatedUser : u));
+        setCurrentUser(updatedUser);
+        
+        if (rememberMe) localStorage.setItem('jbsehunjaes_auth', updatedUser.username);
         else localStorage.removeItem('jbsehunjaes_auth');
         showToast(t.msgLoginSucc);
         setAuthModalOpen(false);
@@ -601,10 +618,41 @@ export default function SweetieWorldApp() {
     if (editUserModal.mode === 'create') {
       const exists = users.find(u => u.username.toLowerCase() === editUserForm.username.trim().toLowerCase() || u.email.toLowerCase() === editUserForm.email.trim().toLowerCase());
       if (exists) return setAlertModal({ message: t.msgExists });
-      setUsers([{...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()}, ...users]);
+      const newUser = {
+         ...editUserForm, 
+         username: editUserForm.username.trim(), email: editUserForm.email.trim(),
+         createdAt: new Date().toISOString(),
+         lastLoginAt: new Date().toISOString(),
+         pointHistory: []
+      };
+      setUsers([newUser, ...users]);
     } else {
-      setUsers(users.map(u => u.username === editUserModal.oldUsername ? {...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()} : u));
-      if(currentUser?.username === editUserModal.oldUsername) setCurrentUser({...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()});
+      // UPDATED: Logic to capture Admin Bonus / Point edit in User's History
+      const oldUser = users.find(u => u.username === editUserModal.oldUsername);
+      let newPointHistory = oldUser?.pointHistory || [];
+      
+      if (oldUser && editUserForm.points !== oldUser.points) {
+         const pointDiff = editUserForm.points - oldUser.points;
+         const newLog: UserHistoryLog = {
+            id: Date.now().toString(),
+            type: 'admin_bonus',
+            title: pointDiff > 0 ? `Admin Added Points (${editUserRemark || 'No remark'})` : `Admin Deducted Points (${editUserRemark || 'No remark'})`,
+            amount: pointDiff,
+            date: new Date().toISOString()
+         };
+         newPointHistory = [newLog, ...newPointHistory];
+      }
+
+      const updatedUser = {
+         ...editUserForm, 
+         username: editUserForm.username.trim(), 
+         email: editUserForm.email.trim(),
+         pointHistory: newPointHistory
+      };
+
+      setUsers(users.map(u => u.username === editUserModal.oldUsername ? updatedUser : u));
+      if(currentUser?.username === editUserModal.oldUsername) setCurrentUser(updatedUser);
+      
       if(editUserRemark.trim() && currentUser) {
          const newLog: AdminLogData = { id: Date.now().toString()+'_log', adminName: currentUser.username, targetUser: editUserForm.username.trim(), action: 'Edit User Profile', remark: editUserRemark.trim(), date: new Date().toISOString() };
          const newNoti: NotificationData = { id: Date.now().toString()+'_noti', targetUser: editUserForm.username.trim(), message: `Admin မှ သင့်အကောင့်အား ပြင်ဆင်မှုပြုလုပ်ခဲ့ပါသည်။ (Admin Action)`, detail: editUserRemark.trim(), date: new Date().toISOString(), isRead: false, actionType: 'admin_edit' };
@@ -1004,7 +1052,7 @@ export default function SweetieWorldApp() {
                         />
                       </div>
                       <button onClick={() => {
-                        setEditUserForm({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
+                        setEditUserForm({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: [], createdAt: '', lastLoginAt: '', pointHistory: []});
                         setEditUserModal({isOpen: true, mode: 'create'});
                       }} className="bg-[#fcd385] text-black px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-yellow-400 transition whitespace-nowrap">
                         <UserPlus className="w-4 h-4" /> {t.createUser}
@@ -1023,12 +1071,16 @@ export default function SweetieWorldApp() {
                           <div><span className={`text-[11px] px-2 py-0.5 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900 text-red-200' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span></div>
                           <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition"><Edit className="w-4 h-4"/></button>
+                            
+                            {/* NEW: View Detail Button */}
+                            <button onClick={() => setUserDetailModal(u)} className="p-2 bg-zinc-800 rounded text-emerald-400 hover:bg-zinc-700 transition" title="View Details"><Eye className="w-4 h-4"/></button>
+
+                            <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition" title="Edit User"><Edit className="w-4 h-4"/></button>
                             {u.username !== currentUser.username && (
                               <button onClick={() => setConfirmModal({
                                  message: t.confirmDelDesc,
                                  onConfirm: () => setUsers(users.filter(user => user.username !== u.username))
-                              })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
+                              })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition" title="Delete User"><Trash2 className="w-4 h-4"/></button>
                             )}
                           </div>
                         </div>
@@ -2013,6 +2065,107 @@ export default function SweetieWorldApp() {
       </div>
 
       {/* --- ALL ROOT LEVEL MODALS --- */}
+
+      {/* NEW: 3D User Detail Info Modal */}
+      {userDetailModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
+          <div className="bg-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative">
+             
+             {/* Header */}
+             <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-[#1a1a1a] rounded-t-2xl">
+               <h2 className="text-xl font-black text-[#fcd385] flex items-center gap-2"><User className="w-5 h-5"/> User Detail: {userDetailModal.username}</h2>
+               <button onClick={() => setUserDetailModal(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+             </div>
+
+             {/* Body - Scrollable */}
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+               
+               {/* Basic Info Grid */}
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-1">Username</p>
+                    <p className="text-sm font-bold text-white">{userDetailModal.username}</p>
+                  </div>
+                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-1">Email (Gmail)</p>
+                    <p className="text-sm font-bold text-white">{userDetailModal.email}</p>
+                  </div>
+                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-1">Password</p>
+                    <p className="text-sm font-bold text-red-400 font-mono">{userDetailModal.password}</p>
+                  </div>
+                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-1">Registration Date</p>
+                    <p className="text-sm font-bold text-white">{formatDateTime(userDetailModal.createdAt || '') || 'N/A'}</p>
+                  </div>
+                  <div className="bg-black/40 p-4 rounded-xl border border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-1">Last Login Date</p>
+                    <p className="text-sm font-bold text-white">{formatDateTime(userDetailModal.lastLoginAt || '') || 'N/A'}</p>
+                  </div>
+                  <div className="bg-black/40 p-4 rounded-xl border border-[#fcd385]/30">
+                    <p className="text-xs text-[#fcd385] mb-1">Total Balance</p>
+                    <p className="text-lg font-black text-[#fcd385]">{userDetailModal.points} PTS</p>
+                  </div>
+               </div>
+
+               {/* History Sections Grid */}
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Deposit History (Filtered from pointRequests) */}
+                  <div className="bg-[#1f1f1f] border border-zinc-800 rounded-xl overflow-hidden flex flex-col h-[400px]">
+                     <div className="bg-zinc-900 p-3 border-b border-zinc-800">
+                        <h3 className="font-bold text-emerald-400 text-sm flex items-center gap-2"><Download className="w-4 h-4"/> Point Deposit History</h3>
+                     </div>
+                     <div className="p-3 overflow-y-auto flex-1 space-y-2">
+                        {pointRequests.filter(p => p.username === userDetailModal.username).length === 0 ? (
+                           <p className="text-xs text-zinc-500 text-center py-4">No deposit records found.</p>
+                        ) : pointRequests.filter(p => p.username === userDetailModal.username).map(req => (
+                           <div key={req.id} className="bg-black p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 transition">
+                              <div className="flex justify-between items-start mb-1">
+                                 <span className="text-xs font-bold text-white">ID: <span className="text-[#fcd385] font-mono">{req.idCode}</span></span>
+                                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${req.status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' : req.status === 'rejected' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>{req.status}</span>
+                              </div>
+                              <div className="flex justify-between items-end mt-2">
+                                 <div>
+                                    <p className="text-[10px] text-zinc-400">{req.provider}</p>
+                                    <p className="text-[10px] text-zinc-500">{formatDateTime(req.date)}</p>
+                                 </div>
+                                 <p className="text-xs font-bold text-emerald-400">+{req.amount || req.requestedAmount} PTS</p>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+
+                  {/* Usage & Bonus History (From user.pointHistory) */}
+                  <div className="bg-[#1f1f1f] border border-zinc-800 rounded-xl overflow-hidden flex flex-col h-[400px]">
+                     <div className="bg-zinc-900 p-3 border-b border-zinc-800">
+                        <h3 className="font-bold text-blue-400 text-sm flex items-center gap-2"><Clock className="w-4 h-4"/> Usage & Admin Bonus History</h3>
+                     </div>
+                     <div className="p-3 overflow-y-auto flex-1 space-y-2">
+                        {(!userDetailModal.pointHistory || userDetailModal.pointHistory.length === 0) ? (
+                           <p className="text-xs text-zinc-500 text-center py-4">No usage or bonus records found.</p>
+                        ) : userDetailModal.pointHistory.map(log => (
+                           <div key={log.id} className="bg-black p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 transition">
+                              <div className="flex justify-between items-start mb-1">
+                                 <span className="text-xs font-bold text-white">{log.title}</span>
+                                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${log.type === 'admin_bonus' ? 'bg-purple-900/50 text-purple-400' : 'bg-blue-900/50 text-blue-400'}`}>{log.type.replace('_', ' ')}</span>
+                              </div>
+                              <div className="flex justify-between items-end mt-2">
+                                 <p className="text-[10px] text-zinc-500">{formatDateTime(log.date)}</p>
+                                 <p className={`text-xs font-bold ${log.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {log.amount > 0 ? '+' : ''}{log.amount} PTS
+                                 </p>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* 3D Edit/Create User Modal (Admin Panel) */}
       {editUserModal.isOpen && (
