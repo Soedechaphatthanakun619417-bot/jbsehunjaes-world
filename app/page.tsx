@@ -250,6 +250,7 @@ export default function SweetieWorldApp() {
   // UI STATES
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false); 
+  const [isGeneratingTgLink, setIsGeneratingTgLink] = useState(false);
   const [userMenuTab, setUserMenuTab] = useState<'menu' | 'messages'>('menu');
   const [activeTab, setActiveTab] = useState<'home' | 'promo' | 'faq'>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -512,6 +513,32 @@ export default function SweetieWorldApp() {
   // ==========================================
   // 4. ACTION HANDLERS
   // ==========================================
+  const handleGetTelegramLink = async (channelId: string) => {
+    if (!channelId) return showToast("Channel ID မရှိပါ။ Admin သို့ဆက်သွယ်ပါ။");
+    
+    setIsGeneratingTgLink(true);
+    try {
+      // Backend API ကို လှမ်းခေါ်မည်
+      const res = await fetch('/api/get-tg-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel_id: channelId })
+      });
+      const data = await res.json();
+      
+      if (data.success && data.link) {
+        // အောင်မြင်ပါက ထွက်လာသော One-Time Link ကို Tab အသစ်ဖြင့် ဖွင့်ပေးမည်
+        window.open(data.link, '_blank');
+      } else {
+         setAlertModal({ message: "Link ထုတ်ယူ၍ မရပါ။ (Admin မှ Bot ကို Channel တွင် Admin ခန့်ထားခြင်း ရှိမရှိ စစ်ဆေးပါ)" });
+      }
+    } catch (error) {
+      setAlertModal({ message: "Internet Connection Error! Please try again." });
+    } finally {
+      setIsGeneratingTgLink(false);
+    }
+  };
+
   const handleExportCSV = () => {
     if (pointRequests.length === 0) return showToast("No data to export.");
     const headers = ["Date", "Username", "Provider", "Transaction ID", "Requested Amount", "Approved Amount", "Status", "Remark"];
@@ -2372,10 +2399,21 @@ export default function SweetieWorldApp() {
                             <p className="text-zinc-300 text-xs sm:text-sm mt-1">{t.vipUnlockedDesc}</p>
                           </div>
                           {selectedShow.vipTelegramLink && (
-                             <a href={selectedShow.vipTelegramLink} target="_blank" rel="noreferrer" className="shrink-0 px-6 py-2 bg-[#fcd385] text-[#3e1717] font-black rounded-lg hover:bg-yellow-400 transition shadow-[0_0_15px_rgba(252,211,133,0.4)]">
-                                Watch on Telegram
-                             </a>
-                          )}
+   <button 
+     // ဒီနေရာလေးတွင် || '' ထည့်ပေးလိုက်ပါ 👇
+     onClick={() => handleGetTelegramLink(selectedShow.vipTelegramLink || '')}
+     disabled={isGeneratingTgLink}
+     className="shrink-0 px-6 py-2 bg-[#fcd385] text-[#3e1717] font-black rounded-lg hover:bg-yellow-400 transition shadow-[0_0_15px_rgba(252,211,133,0.4)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+   >
+      {isGeneratingTgLink ? (
+        <>
+          <span className="w-4 h-4 border-2 border-[#3e1717] border-t-transparent rounded-full animate-spin"></span> Loading...
+        </>
+      ) : (
+        "Watch on Telegram"
+      )}
+   </button>
+)}
                        </div>
                     ) : getRequiredPoints(selectedShow) > 0 ? (
                        <div className="p-4 rounded-xl border border-red-900/50 bg-gradient-to-r from-[#2b0303] to-[#1a0101] flex flex-col sm:flex-row items-center justify-between gap-4">
