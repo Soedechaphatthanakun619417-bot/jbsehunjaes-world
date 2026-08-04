@@ -207,10 +207,11 @@ export default function SweetieWorldApp() {
   const [paymentProviders, setPaymentProviders] = useState(INITIAL_PROVIDERS);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   
-  // New States for Notification & Logs
+  // New States for Notification, Logs & Contact FAB
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [adminLogs, setAdminLogs] = useState<AdminLogData[]>([]);
   const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
+  const [contactFabOpen, setContactFabOpen] = useState(false);
   
   // Custom 3D Modal States with dynamic action support
   const [alertModal, setAlertModal] = useState<{message: string, actionText?: string, onAction?: () => void} | null>(null);
@@ -807,6 +808,21 @@ export default function SweetieWorldApp() {
             <button onClick={() => {setActiveTab('home'); setAdminDashboardOpen(false);}} className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition ${activeTab === 'home' && !adminDashboardOpen ? 'bg-[#333] text-white' : 'text-zinc-400 hover:text-white'}`}><Home className="w-4 h-4"/> {t.home}</button>
             <button onClick={() => {setActiveTab('promo'); setAdminDashboardOpen(false);}} className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition ${activeTab === 'promo' && !adminDashboardOpen ? 'bg-[#333] text-white' : 'text-zinc-400 hover:text-white'}`}><Gift className="w-4 h-4"/> {t.promotions}</button>
             <button onClick={() => {setActiveTab('faq'); setAdminDashboardOpen(false);}} className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition ${activeTab === 'faq' && !adminDashboardOpen ? 'bg-[#333] text-white' : 'text-zinc-400 hover:text-white'}`}><HelpCircle className="w-4 h-4"/> {t.faq}</button>
+            
+            {/* Desktop Contact Us Dropdown (Visible to everyone) */}
+            <div className="relative group hidden lg:block">
+               <button className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition text-zinc-400 hover:text-white`}>
+                  <Phone className="w-4 h-4"/> {t.contactUs}
+               </button>
+               <div className="absolute top-full left-0 mt-1 w-48 bg-[#1a1a1a] border border-[#fcd385]/30 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col overflow-hidden z-50">
+                  {siteConfig.socialLinks?.map(link => (
+                     <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 hover:bg-white/5 transition text-zinc-300 hover:text-white font-bold text-sm">
+                       {link.logo ? <img src={link.logo} alt={link.platform} className="w-5 h-5 object-contain rounded-full bg-white/10 p-0.5" /> : getSocialIcon(link.platform)} 
+                       {link.platform}
+                     </a>
+                  ))}
+               </div>
+            </div>
           </nav>
         </div>
 
@@ -1964,6 +1980,34 @@ export default function SweetieWorldApp() {
           </main>
         </>
       )}
+
+      {/* --- FLOATING CONTACT BUTTON (FAB) --- */}
+      <div className="fixed bottom-6 right-6 z-[150] font-sans flex flex-col items-end">
+         {/* Popup Menu */}
+         {contactFabOpen && (
+            <div className="mb-4 bg-[#1a1a1a] border border-[#fcd385]/30 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col w-56 animate-fade-in origin-bottom-right">
+               <div className="bg-gradient-to-r from-[#2b0303] to-[#1a0101] p-4 border-b border-[#fcd385]/20 flex justify-between items-center">
+                 <h4 className="text-[#fcd385] text-sm font-black tracking-wider">{t.contactUs}</h4>
+                 <button onClick={() => setContactFabOpen(false)} className="text-zinc-400 hover:text-white"><X className="w-4 h-4"/></button>
+               </div>
+               <div className="p-2 space-y-1">
+                 {siteConfig.socialLinks?.length === 0 ? <p className="text-xs text-zinc-500 p-2 text-center">No links available</p> : siteConfig.socialLinks?.map(link => (
+                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" onClick={() => setContactFabOpen(false)} className="flex items-center gap-3 p-3 bg-black/20 hover:bg-[#fcd385]/10 rounded-xl transition text-zinc-300 hover:text-[#fcd385] font-bold text-sm">
+                      {link.logo ? <img src={link.logo} alt={link.platform} className="w-6 h-6 object-contain rounded-full bg-white/10 p-0.5" /> : getSocialIcon(link.platform)} 
+                      {link.platform}
+                    </a>
+                 ))}
+               </div>
+            </div>
+         )}
+         {/* Main Button */}
+         <button 
+           onClick={() => setContactFabOpen(!contactFabOpen)}
+           className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(252,211,133,0.4)] transition-all duration-300 ${contactFabOpen ? 'bg-zinc-800 text-white hover:bg-zinc-700 scale-90' : 'bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] hover:scale-110'}`}
+         >
+           {contactFabOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-7 h-7" />}
+         </button>
+      </div>
 
       {/* --- ALL ROOT LEVEL MODALS --- */}
 
