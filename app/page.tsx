@@ -9,7 +9,7 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle
+  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle, Link2
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -37,7 +37,8 @@ interface UserData { username: string; email: string; password?: string; role: '
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
 interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
-interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; fbLink: string; tgLink: string; viberLink: string; }
+interface SocialLink { id: string; platform: string; url: string; logo?: string; }
+interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; socialLinks: SocialLink[]; }
 interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit'; }
 interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
 
@@ -48,18 +49,22 @@ const DEFAULT_CONFIG: SiteConfig = {
   depositGuideMm: "ငွေသွင်းနည်း\n၁။ ပြသထားသော QR Code ကို Scan ဖတ်ပါ။\n၂။ မိမိဝယ်ယူလိုသော ပမာဏကို လွှဲပါ။\n၃။ ငွေလွှဲပြီးပါက လုပ်ငန်းစဉ်အမှတ် (Txn ID) ကို အောက်ပါအကွက်တွင် မှန်ကန်စွာ ထည့်သွင်းပါ။",
   paymentWarningEn: "Do not write anything in the transaction description/notes. Please transfer only between 1 AM - 6 AM and 12 PM - 9 PM.",
   paymentWarningMm: "ငွေလွှဲရာတွင် Description (မှတ်ချက်) နေရာ၌ ဘာမှမရေးပါနှင့်။ မနက် ၁ နာရီမှ ၆ နာရီအတွင်း၊ နေ့ခင်း ၁၂ နာရီမှ ည ၉ နာရီအတွင်းသာ သွင်းပေးပါ။",
-  fbLink: "#", tgLink: "#", viberLink: "#"
+  socialLinks: [
+    { id: '1', platform: 'Facebook', url: '#', logo: '' },
+    { id: '2', platform: 'Telegram', url: '#', logo: '' },
+    { id: '3', platform: 'Viber', url: '#', logo: '' }
+  ]
 }
 
 const INITIAL_PROVIDERS = {
   banks: [
-    { id: 'aya-bank', name: 'AYA Bank', qrImage: 'https://via.placeholder.com/200?text=AYA+QR', color: 'bg-red-600', accountNo: '' },
-    { id: 'kbz-bank', name: 'KBZ Bank', qrImage: 'https://via.placeholder.com/200?text=KBZ+QR', color: 'bg-blue-600', accountNo: '' }
+    { id: 'aya-bank', name: 'AYA Bank', qrImage: 'https://via.placeholder.com/200?text=AYA+QR', color: 'bg-red-600', accountNo: '', logo: '' },
+    { id: 'kbz-bank', name: 'KBZ Bank', qrImage: 'https://via.placeholder.com/200?text=KBZ+QR', color: 'bg-blue-600', accountNo: '', logo: '' }
   ],
   ewallets: [
-    { id: 'aya-pay', name: 'AYA Pay', qrImage: 'https://via.placeholder.com/200?text=AYAPAY+QR', color: 'bg-red-500', accountNo: '' },
-    { id: 'kbz-pay', name: 'KBZ Pay', qrImage: 'https://via.placeholder.com/200?text=KBZPAY+QR', color: 'bg-blue-500', accountNo: '' },
-    { id: 'wave-pay', name: 'Wave Pay', qrImage: 'https://via.placeholder.com/200?text=WAVEPAY+QR', color: 'bg-yellow-400', accountNo: '' }
+    { id: 'aya-pay', name: 'AYA Pay', qrImage: 'https://via.placeholder.com/200?text=AYAPAY+QR', color: 'bg-red-500', accountNo: '', logo: '' },
+    { id: 'kbz-pay', name: 'KBZ Pay', qrImage: 'https://via.placeholder.com/200?text=KBZPAY+QR', color: 'bg-blue-500', accountNo: '', logo: '' },
+    { id: 'wave-pay', name: 'Wave Pay', qrImage: 'https://via.placeholder.com/200?text=WAVEPAY+QR', color: 'bg-yellow-400', accountNo: '', logo: '' }
   ]
 };
 
@@ -71,6 +76,15 @@ const formatDateTime = (dateString: string) => {
   let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; h = h ? h : 12; 
   const m = d.getMinutes().toString().padStart(2, '0');
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m} ${ampm}`;
+};
+
+const getSocialIcon = (platform: string) => {
+  const lower = platform.toLowerCase();
+  if (lower.includes('facebook') || lower.includes('fb')) return <Globe className="w-4 h-4 text-[#1877F2]"/>;
+  if (lower.includes('telegram') || lower.includes('tg')) return <Send className="w-4 h-4 text-[#0088cc]"/>;
+  if (lower.includes('viber')) return <MessageCircle className="w-4 h-4 text-[#7360f2]"/>;
+  if (lower.includes('phone') || lower.includes('call') || lower.includes('whatsapp')) return <Phone className="w-4 h-4 text-emerald-500"/>;
+  return <Link2 className="w-4 h-4 text-[#fcd385]"/>;
 };
 
 const TRANSLATIONS = {
@@ -209,14 +223,15 @@ export default function SweetieWorldApp() {
   const [showPwdOld, setShowPwdOld] = useState(false);
   const [showPwdNew, setShowPwdNew] = useState(false);
   const [showPwdConfirm, setShowPwdConfirm] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false); // New State for "Remember Me"
   
   // Password Change State
   const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
   const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
 
-  // New Provider State
-  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks', accountNo: '' });
+  // Dynamic Provider & Social States
+  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks', accountNo: '', logo: '' });
+  const [newSocialLink, setNewSocialLink] = useState({ platform: '', url: '', logo: '' });
 
   // Platform Selector Modal for multiple links
   const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
@@ -252,14 +267,21 @@ export default function SweetieWorldApp() {
            }
         };
         
-        const fetchObjDoc = async (colName: string, setFn: any, defaultVal: any) => {
-           const snap = await getDoc(doc(db, "SiteData", colName));
-           if (snap.exists() && snap.data().data) {
-               setFn(snap.data().data);
-           } else if (defaultVal) {
-               setFn(defaultVal);
-           }
-        };
+        const snapConfig = await getDoc(doc(db, "SiteData", "siteConfig"));
+        if (snapConfig.exists() && snapConfig.data().data) {
+            let loadedData = snapConfig.data().data;
+            // Migration for older DB structure to Dynamic Social Links
+            if (!loadedData.socialLinks) {
+               loadedData.socialLinks = [
+                  { id: '1', platform: 'Facebook', url: loadedData.fbLink || '#', logo: '' },
+                  { id: '2', platform: 'Telegram', url: loadedData.tgLink || '#', logo: '' },
+                  { id: '3', platform: 'Viber', url: loadedData.viberLink || '#', logo: '' }
+               ];
+            }
+            setSiteConfig(loadedData);
+        } else {
+            setSiteConfig(DEFAULT_CONFIG);
+        }
 
         await fetchDoc("users", setUsers, INITIAL_USERS);
         
@@ -285,8 +307,13 @@ export default function SweetieWorldApp() {
         await fetchDoc("pointRequests", setPointRequests, []);
         await fetchDoc("notifications", setNotifications, []);
         await fetchDoc("adminLogs", setAdminLogs, []);
-        await fetchObjDoc("paymentProviders", setPaymentProviders, INITIAL_PROVIDERS);
-        await fetchObjDoc("siteConfig", setSiteConfig, DEFAULT_CONFIG);
+        
+        const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
+        if (providerSnap.exists() && providerSnap.data().data) {
+           setPaymentProviders(providerSnap.data().data);
+        } else {
+           setPaymentProviders(INITIAL_PROVIDERS);
+        }
 
       } catch(e) {
         console.error("Firebase fetch error", e);
@@ -410,7 +437,7 @@ export default function SweetieWorldApp() {
   const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
   const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
   const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
-  const [editUserRemark, setEditUserRemark] = useState('');
+  const [editUserRemark, setEditUserRemark] = useState(''); 
 
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
@@ -721,7 +748,7 @@ export default function SweetieWorldApp() {
         </div>
       )}
 
-      {/* --- MOBILE SIDEBAR MENU --- */}
+      {/* --- MOBILE SIDEBAR MENU (HAMBURGER) --- */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-[100] flex font-sans lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
@@ -730,16 +757,40 @@ export default function SweetieWorldApp() {
                 <h3 className="text-lg font-black text-[#fcd385] tracking-wider italic">Menu</h3>
                 <button onClick={() => setSidebarOpen(false)} className="text-zinc-400 hover:text-white transition p-1"><X className="w-6 h-6"/></button>
              </div>
-             <nav className="flex-1 overflow-y-auto p-4 space-y-3">
-                <button onClick={() => {setActiveTab('home'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'home' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Home className="w-5 h-5"/> {t.home}</button>
-                <button onClick={() => {setActiveTab('promo'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'promo' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Gift className="w-5 h-5"/> {t.promotions}</button>
-                <button onClick={() => {setActiveTab('faq'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'faq' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><HelpCircle className="w-5 h-5"/> {t.faq}</button>
-                
-                {currentUser?.role === 'admin' && (
-                  <button onClick={() => {syncLatestData(); setAdminDashboardOpen(true); setSidebarOpen(false);}} className="w-full mt-6 flex items-center gap-3 p-3 rounded-xl font-bold bg-red-900/50 text-red-200 border border-red-500/30 hover:bg-red-800 transition">
-                    <ShieldCheck className="w-5 h-5"/> {t.adminPanel}
-                  </button>
-                )}
+             
+             {/* Unauthenticated User Quick Actions in Sidebar */}
+             {!currentUser && (
+                <div className="p-4 flex gap-2 border-b border-zinc-800">
+                  <button onClick={() => {setAuthMode('login'); setAuthModalOpen(true); setSidebarOpen(false);}} className="flex-1 text-sm font-bold bg-[#fcd385] text-[#3e1717] py-2 rounded-md hover:bg-yellow-400 transition shadow">{t.loginBtn}</button>
+                  <button onClick={() => {setAuthMode('register'); setAuthModalOpen(true); setSidebarOpen(false);}} className="flex-1 text-sm font-bold border border-[#fcd385] text-[#fcd385] py-2 rounded-md hover:bg-[#fcd385]/10 transition">{t.signUpBtn}</button>
+                </div>
+             )}
+
+             <nav className="flex-1 overflow-y-auto p-4 flex flex-col">
+                <div className="space-y-3">
+                  <button onClick={() => {setActiveTab('home'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'home' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Home className="w-5 h-5"/> {t.home}</button>
+                  <button onClick={() => {setActiveTab('promo'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'promo' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><Gift className="w-5 h-5"/> {t.promotions}</button>
+                  <button onClick={() => {setActiveTab('faq'); setAdminDashboardOpen(false); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition ${activeTab === 'faq' && !adminDashboardOpen ? 'bg-[#fcd385] text-[#3e1717]' : 'bg-[#1f1f1f] text-zinc-300 hover:text-white border border-zinc-800'}`}><HelpCircle className="w-5 h-5"/> {t.faq}</button>
+                  
+                  {currentUser?.role === 'admin' && (
+                    <button onClick={() => {syncLatestData(); setAdminDashboardOpen(true); setSidebarOpen(false);}} className="w-full mt-6 flex items-center gap-3 p-3 rounded-xl font-bold bg-red-900/50 text-red-200 border border-red-500/30 hover:bg-red-800 transition">
+                      <ShieldCheck className="w-5 h-5"/> {t.adminPanel}
+                    </button>
+                  )}
+                </div>
+
+                {/* Dynamic Contact Links inside Sidebar (Available anytime) */}
+                <div className="mt-8 pt-6 border-t border-[#fcd385]/10">
+                   <h4 className="text-xs font-bold text-[#fcd385] mb-3 uppercase tracking-wider">{lang === 'en' ? 'Contact Us' : 'ဆက်သွယ်ရန်'}</h4>
+                   <div className="space-y-2">
+                      {siteConfig.socialLinks?.map(link => (
+                         <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-white/5 rounded-xl transition text-zinc-300 hover:text-white font-bold text-sm">
+                           {link.logo ? <img src={link.logo} alt={link.platform} className="w-5 h-5 object-contain rounded-full" /> : getSocialIcon(link.platform)} 
+                           {link.platform}
+                         </a>
+                      ))}
+                   </div>
+                </div>
              </nav>
           </div>
         </div>
@@ -860,7 +911,7 @@ export default function SweetieWorldApp() {
                     <p className="text-xs text-zinc-300 mb-1">{t.balance}</p>
                     <p className="text-2xl font-black text-[#fcd385]">Ks. {currentUser.points}</p>
                  </div>
-                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                 <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col">
                     <button onClick={() => setUserMenuTab('messages')} className="w-full flex items-center justify-between p-3 bg-black/20 hover:bg-black/40 rounded-xl transition text-white font-bold text-sm">
                       <div className="flex items-center gap-3 relative"><MessageSquareIcon unreadCount={unreadNotiCount}/> {t.inbox}</div>
                       <ChevronRight className="w-4 h-4 text-white/50"/>
@@ -878,18 +929,16 @@ export default function SweetieWorldApp() {
                       <ChevronRight className="w-4 h-4 text-white/50"/>
                     </button>
 
-                    <div className="mt-6 pt-4 border-t border-[#fcd385]/10">
+                    {/* Dynamic Contact Links inside Profile */}
+                    <div className="mt-auto pt-6 border-t border-[#fcd385]/10">
                       <h4 className="text-xs font-bold text-[#fcd385] mb-3">{t.contactUs}</h4>
                       <div className="space-y-2">
-                        <a href={siteConfig.fbLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#1877F2]/20 rounded-xl transition text-white font-bold text-sm">
-                          <Globe className="w-4 h-4 text-[#1877F2]"/> Facebook
-                        </a>
-                        <a href={siteConfig.tgLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#0088cc]/20 rounded-xl transition text-white font-bold text-sm">
-                          <Send className="w-4 h-4 text-[#0088cc]"/> Telegram
-                        </a>
-                        <a href={siteConfig.viberLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-[#7360f2]/20 rounded-xl transition text-white font-bold text-sm">
-                          <MessageCircle className="w-4 h-4 text-[#7360f2]"/> Viber
-                        </a>
+                        {siteConfig.socialLinks?.map(link => (
+                           <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-black/20 hover:bg-white/5 rounded-xl transition text-zinc-300 hover:text-white font-bold text-sm">
+                             {link.logo ? <img src={link.logo} alt={link.platform} className="w-5 h-5 object-contain rounded-full" /> : getSocialIcon(link.platform)} 
+                             {link.platform}
+                           </a>
+                        ))}
                       </div>
                     </div>
                  </div>
@@ -1275,12 +1324,49 @@ export default function SweetieWorldApp() {
                       <textarea placeholder="Myanmar Version" rows={2} value={siteConfig.paymentWarningMm || ''} onChange={e => setSiteConfig({...siteConfig, paymentWarningMm: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-sm text-white focus:outline-none focus:border-red-400" />
                     </div>
 
+                    {/* DYNAMIC CONTACT LINKS */}
                     <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800">
-                      <h4 className="text-sm font-bold text-[#fcd385] mb-4 border-b border-zinc-800 pb-2">Contact Links (Profile Menu)</h4>
+                      <h4 className="text-sm font-bold text-[#fcd385] mb-4 border-b border-zinc-800 pb-2">Contact Links (Dynamic)</h4>
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3"><Globe className="w-5 h-5 text-[#1877F2]"/> <input type="text" value={siteConfig.fbLink || ''} onChange={e => setSiteConfig({...siteConfig, fbLink: e.target.value})} className="flex-1 bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white" /></div>
-                        <div className="flex items-center gap-3"><Send className="w-5 h-5 text-[#0088cc]"/> <input type="text" value={siteConfig.tgLink || ''} onChange={e => setSiteConfig({...siteConfig, tgLink: e.target.value})} className="flex-1 bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white" /></div>
-                        <div className="flex items-center gap-3"><MessageCircle className="w-5 h-5 text-[#7360f2]"/> <input type="text" value={siteConfig.viberLink || ''} onChange={e => setSiteConfig({...siteConfig, viberLink: e.target.value})} className="flex-1 bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white" /></div>
+                        {siteConfig.socialLinks?.map((link, idx) => (
+                           <div key={link.id} className="flex flex-col gap-2 p-3 bg-black/40 rounded-xl border border-zinc-800">
+                              <div className="flex flex-col sm:flex-row items-center gap-2">
+                                <div className="bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white w-full sm:w-32 flex items-center gap-2 shrink-0">
+                                   {link.logo ? <img src={link.logo} alt="" className="w-4 h-4 object-contain" /> : getSocialIcon(link.platform)}
+                                   <span className="truncate">{link.platform}</span>
+                                </div>
+                                <input type="text" placeholder="URL Link..." value={link.url} onChange={e => {
+                                    const updated = [...siteConfig.socialLinks];
+                                    updated[idx].url = e.target.value;
+                                    setSiteConfig({...siteConfig, socialLinks: updated});
+                                }} className="w-full sm:flex-1 bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                                <button onClick={() => {
+                                    const updated = siteConfig.socialLinks.filter(l => l.id !== link.id);
+                                    setSiteConfig({...siteConfig, socialLinks: updated});
+                                }} className="w-full sm:w-auto p-2 bg-red-900/30 rounded text-red-400 hover:bg-red-900 transition flex justify-center"><Trash2 className="w-4 h-4"/></button>
+                              </div>
+                              <input type="text" placeholder="Logo URL (Optional)..." value={link.logo || ''} onChange={e => {
+                                  const updated = [...siteConfig.socialLinks];
+                                  updated[idx].logo = e.target.value;
+                                  setSiteConfig({...siteConfig, socialLinks: updated});
+                              }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-zinc-400 focus:outline-none focus:border-[#fcd385]" />
+                           </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-zinc-800">
+                         <input type="text" placeholder="Name (e.g. WhatsApp)" value={newSocialLink.platform} onChange={e => setNewSocialLink({...newSocialLink, platform: e.target.value})} className="bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-1/4" />
+                         <input type="text" placeholder="URL Link..." value={newSocialLink.url} onChange={e => setNewSocialLink({...newSocialLink, url: e.target.value})} className="bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-1/3" />
+                         <input type="text" placeholder="Logo Image URL..." value={newSocialLink.logo} onChange={e => setNewSocialLink({...newSocialLink, logo: e.target.value})} className="bg-black border border-zinc-700 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-1/3" />
+                         <button onClick={() => {
+                             if (newSocialLink.platform.trim() && newSocialLink.url.trim()) {
+                                 setSiteConfig({
+                                    ...siteConfig,
+                                    socialLinks: [...(siteConfig.socialLinks || []), { id: Date.now().toString(), platform: newSocialLink.platform, url: newSocialLink.url, logo: newSocialLink.logo }]
+                                 });
+                                 setNewSocialLink({ platform: '', url: '', logo: '' });
+                                 showToast('Link added successfully');
+                             }
+                         }} className="bg-[#fcd385] text-black px-4 py-2 rounded-lg text-sm font-bold w-full sm:w-auto">{t.addBtn}</button>
                       </div>
                     </div>
                   </div>
@@ -1295,12 +1381,16 @@ export default function SweetieWorldApp() {
                           <div key={p.id} className="bg-black/40 p-3 rounded-lg border border-zinc-800 space-y-2">
                              <div className="flex items-center justify-between">
                                <div className="flex items-center gap-3 w-40">
-                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] ${p.color}`}>{p.name[0]}</div>
+                                 {p.logo ? (
+                                    <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5" />
+                                 ) : (
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                                 )}
                                  <span className="text-white font-bold text-sm">{p.name}</span>
                                </div>
                                <button onClick={() => setConfirmModal({
                                   message: "Delete this bank provider?",
-                                  onConfirm: () => setPaymentProviders({...paymentProviders, banks: paymentProviders.banks.filter(b => b.id !== p.id)})
+                                  onConfirm: () => setPaymentProviders({...paymentProviders, banks: paymentProviders.banks.filter((b:any) => b.id !== p.id)})
                                })} className="p-1.5 bg-red-900/30 rounded text-red-400 hover:bg-red-900 transition"><Trash2 className="w-4 h-4"/></button>
                              </div>
                              <div className="flex flex-col gap-2 mt-2">
@@ -1312,6 +1402,10 @@ export default function SweetieWorldApp() {
                                    const newBanks = [...paymentProviders.banks]; newBanks[idx].accountNo = e.target.value;
                                    setPaymentProviders({...paymentProviders, banks: newBanks});
                                  }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                               <input type="text" placeholder="Logo Image URL (Optional)..." value={p.logo || ''} onChange={e => {
+                                   const newBanks = [...paymentProviders.banks]; newBanks[idx].logo = e.target.value;
+                                   setPaymentProviders({...paymentProviders, banks: newBanks});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-zinc-400 focus:outline-none focus:border-[#fcd385]" />
                              </div>
                           </div>
                         ))}
@@ -1323,12 +1417,16 @@ export default function SweetieWorldApp() {
                           <div key={p.id} className="bg-black/40 p-3 rounded-lg border border-zinc-800 space-y-2">
                              <div className="flex items-center justify-between">
                                <div className="flex items-center gap-3 w-40">
-                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] ${p.color}`}>{p.name[0]}</div>
+                                 {p.logo ? (
+                                    <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5" />
+                                 ) : (
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                                 )}
                                  <span className="text-white font-bold text-sm">{p.name}</span>
                                </div>
                                <button onClick={() => setConfirmModal({
                                   message: "Delete this E-Wallet provider?",
-                                  onConfirm: () => setPaymentProviders({...paymentProviders, ewallets: paymentProviders.ewallets.filter(e => e.id !== p.id)})
+                                  onConfirm: () => setPaymentProviders({...paymentProviders, ewallets: paymentProviders.ewallets.filter((e:any) => e.id !== p.id)})
                                })} className="p-1.5 bg-red-900/30 rounded text-red-400 hover:bg-red-900 transition"><Trash2 className="w-4 h-4"/></button>
                              </div>
                              <div className="flex flex-col gap-2 mt-2">
@@ -1340,30 +1438,39 @@ export default function SweetieWorldApp() {
                                    const newEwallets = [...paymentProviders.ewallets]; newEwallets[idx].accountNo = e.target.value;
                                    setPaymentProviders({...paymentProviders, ewallets: newEwallets});
                                  }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                               <input type="text" placeholder="Logo Image URL (Optional)..." value={p.logo || ''} onChange={e => {
+                                   const newEwallets = [...paymentProviders.ewallets]; newEwallets[idx].logo = e.target.value;
+                                   setPaymentProviders({...paymentProviders, ewallets: newEwallets});
+                                 }} className="w-full bg-black border border-zinc-700 p-2 rounded-lg text-xs text-zinc-400 focus:outline-none focus:border-[#fcd385]" />
                              </div>
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-6 pt-4 border-t border-zinc-800 flex flex-col sm:flex-row gap-2">
-                        <input type="text" placeholder="Name (e.g. KBZ Pay)" value={newProvider.name || ''} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
-                        <input type="text" placeholder="Account No" value={newProvider.accountNo || ''} onChange={e => setNewProvider({...newProvider, accountNo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
-                        <select value={newProvider.type || ''} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385]">
-                          <option value="banks">Bank</option>
-                          <option value="ewallets">E-Wallet</option>
-                        </select>
-                        <button onClick={() => {
-                          if(newProvider.name.trim()) {
-                            const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600', accountNo: newProvider.accountNo };
-                            if (newProvider.type === 'banks') {
-                              setPaymentProviders({...paymentProviders, banks: [...paymentProviders.banks, newProv]});
-                            } else {
-                              setPaymentProviders({...paymentProviders, ewallets: [...paymentProviders.ewallets, newProv]});
+                      <div className="mt-6 pt-4 border-t border-zinc-800 flex flex-col gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input type="text" placeholder="Name (e.g. KBZ Pay)" value={newProvider.name || ''} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                          <input type="text" placeholder="Account No" value={newProvider.accountNo || ''} onChange={e => setNewProvider({...newProvider, accountNo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input type="text" placeholder="Logo Image URL" value={newProvider.logo || ''} onChange={e => setNewProvider({...newProvider, logo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                          <select value={newProvider.type || ''} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-auto">
+                            <option value="banks">Bank</option>
+                            <option value="ewallets">E-Wallet</option>
+                          </select>
+                          <button onClick={() => {
+                            if(newProvider.name.trim()) {
+                              const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600', accountNo: newProvider.accountNo, logo: newProvider.logo };
+                              if (newProvider.type === 'banks') {
+                                setPaymentProviders({...paymentProviders, banks: [...paymentProviders.banks, newProv]});
+                              } else {
+                                setPaymentProviders({...paymentProviders, ewallets: [...paymentProviders.ewallets, newProv]});
+                              }
+                              setNewProvider({ name: '', type: 'banks', accountNo: '', logo: '' });
+                              showToast("Payment method added.");
                             }
-                            setNewProvider({ name: '', type: 'banks', accountNo: '' });
-                            showToast("Payment method added.");
-                          }
-                        }} className="bg-[#fcd385] px-4 py-2 sm:py-0 rounded-lg text-black text-sm font-bold">{t.addBtn}</button>
+                          }} className="bg-[#fcd385] px-4 py-2 sm:py-0 rounded-lg text-black text-sm font-bold w-full sm:w-auto">{t.addBtn}</button>
+                        </div>
                       </div>
                     </div>
 
@@ -2126,7 +2233,11 @@ export default function SweetieWorldApp() {
                       {paymentProviders.banks.map((p: any) => (
                         <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                            {p.logo ? (
+                               <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-lg" />
+                            ) : (
+                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                            )}
                             <span className="text-white font-bold text-sm">{p.name}</span>
                           </div>
                           <ChevronRight className="w-5 h-5 text-[#fcd385]/50" />
@@ -2140,7 +2251,11 @@ export default function SweetieWorldApp() {
                       {paymentProviders.ewallets.map((p: any) => (
                         <div key={p.id} onClick={() => {setSelectedProvider(p); setPayStep('form');}} className="flex items-center justify-between p-3 bg-black/40 hover:bg-black/60 rounded-xl cursor-pointer transition border border-transparent hover:border-[#fcd385]/50 shadow-inner">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                            {p.logo ? (
+                               <img src={p.logo} alt={p.name} className="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-lg" />
+                            ) : (
+                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${p.color}`}>{p.name[0]}</div>
+                            )}
                             <span className="text-white font-bold text-sm">{p.name}</span>
                           </div>
                           <ChevronRight className="w-5 h-5 text-[#fcd385]/50" />
