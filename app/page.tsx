@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-// Firebase Imports များ
+// Firebase Imports
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import {
@@ -9,11 +9,11 @@ import {
   Globe, Menu, Home, HelpCircle, Gift, Info, Send, Phone,
   Users, Bell, LayoutDashboard, Upload, ShieldCheck, UserPlus, Calendar, ChevronRight,
   ChevronLeft, Copy, CheckCircle, Clock, XCircle, CreditCard, Settings, LogOut, Key, MessageCircle, MonitorPlay,
-  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle, Link2
+  Eye, EyeOff, Download, RefreshCw, Mail, AlertCircle, Link2, FileSpreadsheet
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
-// သတိပြုရန် - အောက်ပါ firebaseConfig နေရာတွင် Firebase မှ သင် Copy ကူးလာသော အချက်အလက်များကို အစားထိုးထည့်ပါ။
+// FIREBASE CONFIGURATION
 // ------------------------------------------------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyAPVvbhDa1xJ97b2N4Mm7it4yY1TRSKaDw",
@@ -27,14 +27,15 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
-// ------------------------------------------------------------------
 
-// --- Types ---
+// ------------------------------------------------------------------
+// INTERFACES & TYPES
+// ------------------------------------------------------------------
 interface EpLink { platform: string; url: string; }
 interface EpisodeData { epLabel: string; links: EpLink[]; releaseDateRaw?: string; releaseDate: string; }
 interface VideoCardData { id: string; title_en: string; title_mm: string; image: string; category: string; description: string; totalEpisodes: number; pointsPerEp: number; episodes: EpisodeData[]; vipTelegramLink?: string; }
 interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; }
-interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; remark?: string; }
+interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; requestedAmount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
 interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
 interface SocialLink { id: string; platform: string; url: string; logo?: string; }
@@ -42,6 +43,9 @@ interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: str
 interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit'; }
 interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
 
+// ------------------------------------------------------------------
+// INITIAL CONSTANTS & DEFAULT DATA
+// ------------------------------------------------------------------
 const DEFAULT_CONFIG: SiteConfig = {
   marqueeEn: "We do not accept gambling advertisements.",
   marqueeMm: "လောင်းကစားနဲ့ပတ်သက်သော ကြော်ငြာများကိုထည့်သွင်းကြော်ငြာပေးမည်မဟုတ်ပါ",
@@ -54,7 +58,7 @@ const DEFAULT_CONFIG: SiteConfig = {
     { id: '2', platform: 'Telegram', url: '#', logo: '' },
     { id: '3', platform: 'Viber', url: '#', logo: '' }
   ]
-}
+};
 
 const INITIAL_PROVIDERS = {
   banks: [
@@ -68,24 +72,26 @@ const INITIAL_PROVIDERS = {
   ]
 };
 
-const formatDateTime = (dateString: string) => {
-  if (!dateString) return '';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return dateString;
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; h = h ? h : 12; 
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m} ${ampm}`;
-};
+const INITIAL_CATEGORIES = ['All']; 
+const INITIAL_PLATFORMS = ['Facebook', 'Telegram', 'Viber', 'Drive', 'Other']; 
 
-const getSocialIcon = (platform: string) => {
-  const lower = platform.toLowerCase();
-  if (lower.includes('facebook') || lower.includes('fb')) return <Globe className="w-4 h-4 text-[#1877F2]"/>;
-  if (lower.includes('telegram') || lower.includes('tg')) return <Send className="w-4 h-4 text-[#0088cc]"/>;
-  if (lower.includes('viber')) return <MessageCircle className="w-4 h-4 text-[#7360f2]"/>;
-  if (lower.includes('phone') || lower.includes('call') || lower.includes('whatsapp')) return <Phone className="w-4 h-4 text-emerald-500"/>;
-  return <Link2 className="w-4 h-4 text-[#fcd385]"/>;
-};
+const INITIAL_SHOWS: VideoCardData[] = [
+  {
+    id: 'cw-1', title_en: 'Unlucky Bae', title_mm: 'ကံမကောင်းတဲ့ချစ်သူ',
+    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=700&auto=format&fit=crop&q=80',
+    category: 'All', description: 'When two opposite college students end up as accidental roommates...',
+    totalEpisodes: 2, pointsPerEp: 20, vipTelegramLink: 'https://t.me/sweetieworld_vip',
+    episodes: [
+      { epLabel: 'EP 1', links: [{platform: 'Telegram', url: 'https://t.me/example'}, {platform: 'Facebook', url: 'https://facebook.com'}], releaseDateRaw: '', releaseDate: '' },
+      { epLabel: 'EP 2', links: [], releaseDateRaw: '2026-08-04T18:00', releaseDate: '4 Aug 2026 6:00 PM' }
+    ]
+  }
+];
+
+const INITIAL_USERS: UserData[] = [
+  { username: 'admin', email: 'admin@gmail.com', password: '123', role: 'admin', points: 999999, vip: false, unlockedShows: [] },
+  { username: 'testuser', email: 'user@gmail.com', password: '123', role: 'user', points: 200, vip: false, unlockedShows: [] }
+];
 
 const TRANSLATIONS = {
   en: {
@@ -170,33 +176,45 @@ const TRANSLATIONS = {
   }
 };
 
-const INITIAL_CATEGORIES = ['All']; 
-const INITIAL_PLATFORMS = ['Facebook', 'Telegram', 'Viber', 'Drive', 'Other']; 
+// ------------------------------------------------------------------
+// GLOBAL HELPERS
+// ------------------------------------------------------------------
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return dateString;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; h = h ? h : 12; 
+  const m = d.getMinutes().toString().padStart(2, '0');
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m} ${ampm}`;
+};
 
-const INITIAL_SHOWS: VideoCardData[] = [
-  {
-    id: 'cw-1', title_en: 'Unlucky Bae', title_mm: 'ကံမကောင်းတဲ့ချစ်သူ',
-    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=700&auto=format&fit=crop&q=80',
-    category: 'All', description: 'When two opposite college students end up as accidental roommates...',
-    totalEpisodes: 2, pointsPerEp: 20, vipTelegramLink: 'https://t.me/sweetieworld_vip',
-    episodes: [
-      { epLabel: 'EP 1', links: [{platform: 'Telegram', url: 'https://t.me/example'}, {platform: 'Facebook', url: 'https://facebook.com'}], releaseDateRaw: '', releaseDate: '' },
-      { epLabel: 'EP 2', links: [], releaseDateRaw: '2026-08-04T18:00', releaseDate: '4 Aug 2026 6:00 PM' }
-    ]
-  }
-];
+const getSocialIcon = (platform: string) => {
+  const lower = platform.toLowerCase();
+  if (lower.includes('facebook') || lower.includes('fb')) return <Globe className="w-4 h-4 text-[#1877F2]"/>;
+  if (lower.includes('telegram') || lower.includes('tg')) return <Send className="w-4 h-4 text-[#0088cc]"/>;
+  if (lower.includes('viber')) return <MessageCircle className="w-4 h-4 text-[#7360f2]"/>;
+  if (lower.includes('phone') || lower.includes('call') || lower.includes('whatsapp')) return <Phone className="w-4 h-4 text-emerald-500"/>;
+  return <Link2 className="w-4 h-4 text-[#fcd385]"/>;
+};
 
-const INITIAL_USERS: UserData[] = [
-  { username: 'admin', email: 'admin@gmail.com', password: '123', role: 'admin', points: 999999, vip: false, unlockedShows: [] },
-  { username: 'testuser', email: 'user@gmail.com', password: '123', role: 'user', points: 200, vip: false, unlockedShows: [] }
-];
+const MessageSquareIcon = ({unreadCount}: {unreadCount: number}) => (
+  <div className="relative">
+    <MessageCircle className="w-4 h-4 text-[#fcd385]" />
+    {unreadCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-600 w-2.5 h-2.5 rounded-full border border-black animate-pulse"></span>}
+  </div>
+);
 
+// ------------------------------------------------------------------
+// MAIN APP COMPONENT
+// ------------------------------------------------------------------
 export default function SweetieWorldApp() {
   const [isClient, setIsClient] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lang, setLang] = useState<'mm' | 'en'>('mm');
   const t = TRANSLATIONS[lang];
 
+  // DATA STATES
   const [users, setUsers] = useState<UserData[]>(INITIAL_USERS);
   const [shows, setShows] = useState<VideoCardData[]>(INITIAL_SHOWS);
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
@@ -206,38 +224,80 @@ export default function SweetieWorldApp() {
   const [pointRequests, setPointRequests] = useState<PointRequest[]>([]);
   const [paymentProviders, setPaymentProviders] = useState(INITIAL_PROVIDERS);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
-  
-  // New States for Notification, Logs & Contact FAB
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [adminLogs, setAdminLogs] = useState<AdminLogData[]>([]);
+  
+  // USER / AUTH STATES
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
+  const [showPwdOld, setShowPwdOld] = useState(false);
+  const [showPwdNew, setShowPwdNew] = useState(false);
+  const [showPwdConfirm, setShowPwdConfirm] = useState(false);
+
+  // UI STATES
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false); 
+  const [userMenuTab, setUserMenuTab] = useState<'menu' | 'messages'>('menu');
+  const [activeTab, setActiveTab] = useState<'home' | 'promo' | 'faq'>('home');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
   const [contactFabOpen, setContactFabOpen] = useState(false);
-  
-  // Custom 3D Modal States with dynamic action support
+
+  // PAYMENT STATES
+  const [pointModalOpen, setPointModalOpen] = useState(false);
+  const [payStep, setPayStep] = useState<'menu' | 'providers' | 'form' | 'history'>('menu');
+  const [selectedProvider, setSelectedProvider] = useState<any>(null);
+  const [idCodeInput, setIdCodeInput] = useState('');
+  const [amountInput, setAmountInput] = useState('');
+
+  // CONTENT STATES
+  const [selectedShow, setSelectedShow] = useState<VideoCardData | null>(null);
+  const [vipModalShow, setVipModalShow] = useState<VideoCardData | null>(null);
+  const [scheduleAlert, setScheduleAlert] = useState<{isOpen: boolean, date: string, show: VideoCardData} | null>(null);
+  const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
+
+  // ADMIN STATES
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
+  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('users');
+  const [adminUserSearch, setAdminUserSearch] = useState('');
+  const [adminPointSearch, setAdminPointSearch] = useState('');
+  const [adminHistorySearch, setAdminHistorySearch] = useState('');
+  const [adminLogSearch, setAdminLogSearch] = useState('');
+  const [adminUploadedSearch, setAdminUploadedSearch] = useState('');
+  const [adminPromoSearch, setAdminPromoSearch] = useState('');
+  const [adminFaqSearch, setAdminFaqSearch] = useState('');
+  const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
+  const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
+  const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
+  const [editUserRemark, setEditUserRemark] = useState(''); 
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
+  const [editingShowId, setEditingShowId] = useState<string | null>(null);
+  const [newPromo, setNewPromo] = useState<Partial<PromoItem>>({ title_en: '', body_en: '', title_mm: '', body_mm: '', image: '' });
+  const [newFaq, setNewFaq] = useState({ title_en: '', body_en: '', title_mm: '', body_mm: '' });
+  const [newVideo, setNewVideo] = useState<Partial<VideoCardData>>({ episodes: [], title_en: '', title_mm: '', pointsPerEp: 20 });
+  const [epCount, setEpCount] = useState(1);
+  const [newCategory, setNewCategory] = useState('');
+  const [newPlatform, setNewPlatform] = useState('');
+  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks', accountNo: '', logo: '' });
+  const [newSocialLink, setNewSocialLink] = useState({ platform: '', url: '', logo: '' });
+
+  // REUSABLE MODALS
   const [alertModal, setAlertModal] = useState<{message: string, actionText?: string, onAction?: () => void} | null>(null);
   const [confirmModal, setConfirmModal] = useState<{message?: string, onConfirm: () => void} | null>(null);
   const [promptModal, setPromptModal] = useState<{title: string, placeholder: string, onSubmit: (val: string) => void} | null>(null);
   const [promptInputValue, setPromptInputValue] = useState('');
-  
-  // Password View States
-  const [showAuthPassword, setShowAuthPassword] = useState(false);
-  const [showPwdOld, setShowPwdOld] = useState(false);
-  const [showPwdNew, setShowPwdNew] = useState(false);
-  const [showPwdConfirm, setShowPwdConfirm] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false); // New State for "Remember Me"
-  
-  // Password Change State
-  const [changePwdModalOpen, setChangePwdModalOpen] = useState(false);
-  const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
 
-  // Dynamic Provider & Social States
-  const [newProvider, setNewProvider] = useState({ name: '', type: 'banks', accountNo: '', logo: '' });
-  const [newSocialLink, setNewSocialLink] = useState({ platform: '', url: '', logo: '' });
-
-  // Platform Selector Modal for multiple links
-  const [platformSelectModal, setPlatformSelectModal] = useState<{ep: EpisodeData, show: VideoCardData} | null>(null);
-
-  // Pagination States
+  // PAGINATION & FILTERS
   const [usersPage, setUsersPage] = useState(1);
   const [usersPerPage, setUsersPerPage] = useState(10);
   const [historyPage, setHistoryPage] = useState(1);
@@ -246,110 +306,96 @@ export default function SweetieWorldApp() {
   const [showsPerPage, setShowsPerPage] = useState(10);
   const [adminLogPage, setAdminLogPage] = useState(1);
   const [adminLogPerPage, setAdminLogPerPage] = useState(10);
-
-  // Bulk Delete State
-  const [bulkDeleteDate, setBulkDeleteDate] = useState('');
+  const [bulkDeleteDateFrom, setBulkDeleteDateFrom] = useState('');
+  const [bulkDeleteDateTo, setBulkDeleteDateTo] = useState('');
   const [adminLogBulkDate, setAdminLogBulkDate] = useState('');
 
-  // Noti Bell Reference for clicking outside
   const notiRef = useRef<HTMLDivElement>(null);
 
-  // --- Firebase Data Fetching ---
-  useEffect(() => {
-    setIsClient(true);
-    const loadData = async () => {
-      try {
-        const fetchDoc = async (colName: string, setFn: any, defaultVal: any) => {
-           const snap = await getDoc(doc(db, "SiteData", colName));
-           if (snap.exists() && snap.data().data && snap.data().data.length > 0) {
-               setFn(snap.data().data);
-           } else if (defaultVal) {
-               setFn(defaultVal);
-           }
-        };
-        
-        const snapConfig = await getDoc(doc(db, "SiteData", "siteConfig"));
-        if (snapConfig.exists() && snapConfig.data().data) {
-            let loadedData = snapConfig.data().data;
-            // Migration for older DB structure to Dynamic Social Links
-            if (!loadedData.socialLinks) {
-               loadedData.socialLinks = [
-                  { id: '1', platform: 'Facebook', url: loadedData.fbLink || '#', logo: '' },
-                  { id: '2', platform: 'Telegram', url: loadedData.tgLink || '#', logo: '' },
-                  { id: '3', platform: 'Viber', url: loadedData.viberLink || '#', logo: '' }
-               ];
-            }
-            setSiteConfig(loadedData);
-        } else {
-            setSiteConfig(DEFAULT_CONFIG);
-        }
+  // --- INTERNAL COMPONENT FUNCTIONS ---
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
-        await fetchDoc("users", setUsers, INITIAL_USERS);
-        
-        const showsSnap = await getDoc(doc(db, "SiteData", "shows"));
-        if (showsSnap.exists() && showsSnap.data().data && showsSnap.data().data.length > 0) {
-           const parsedShows = showsSnap.data().data;
-           const migratedShows = parsedShows.map((s: any) => ({
-              ...s,
-              episodes: s.episodes.map((ep: any) => ({
-                  ...ep,
-                  links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : [])
-              }))
-           }));
-           setShows(migratedShows);
-        } else {
-           setShows(INITIAL_SHOWS);
-        }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    showToast(t.msgCopied);
+  };
 
-        await fetchDoc("categories", setCategories, INITIAL_CATEGORIES);
-        await fetchDoc("platforms", setPlatforms, INITIAL_PLATFORMS);
-        await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
-        await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
-        await fetchDoc("pointRequests", setPointRequests, []);
-        await fetchDoc("notifications", setNotifications, []);
-        await fetchDoc("adminLogs", setAdminLogs, []);
-        
-        const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
-        if (providerSnap.exists() && providerSnap.data().data) {
-           setPaymentProviders(providerSnap.data().data);
-        } else {
-           setPaymentProviders(INITIAL_PROVIDERS);
-        }
-
-      } catch(e) {
-        console.error("Firebase fetch error", e);
-      } finally {
-        setIsInitialLoad(false);
-      }
-    };
-
-    loadData();
-
-    // Close Dropdown when click outside
-    const handleClickOutside = (event: any) => {
-      if (notiRef.current && !notiRef.current.contains(event.target)) {
-        setNotiDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-
-  }, []);
-
-  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
-
-  // --- Auto Login Check (Remember Me) ---
-  useEffect(() => {
-    if (isInitialLoad || users.length === 0) return;
-    const savedUser = localStorage.getItem('jbsehunjaes_auth');
-    if (savedUser && !currentUser) {
-      const found = users.find(u => u.username === savedUser);
-      if (found) setCurrentUser(found);
-      else localStorage.removeItem('jbsehunjaes_auth'); // Clean up if user is deleted
+  const handleDownloadQR = async (url: string, providerName: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${providerName}_QR.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      showToast("QR Code Downloaded!");
+    } catch (error) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${providerName}_QR.png`;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
-  }, [isInitialLoad, users]);
+  };
 
-  // --- Real-time Sync Helper (To get fresh data on demand instantly) ---
+  const renderPagination = (currentPage: number, setPage: (p: number) => void, itemsPerPage: number, setItemsPerPage: (p: number) => void, totalItems: number) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    return (
+      <div className="flex flex-wrap justify-between items-center mt-4 bg-black/40 p-3 rounded-xl border border-zinc-800 gap-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+          <span>{lang === 'en' ? 'Show' : 'ပြသရန်'}</span>
+          <select value={itemsPerPage} onChange={e => {setItemsPerPage(Number(e.target.value)); setPage(1);}} className="bg-black border border-zinc-700 rounded px-2 py-1 text-white outline-none cursor-pointer">
+            <option value={10}>10</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span>{lang === 'en' ? 'entries' : 'ခု'}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Prev</button>
+          <span className="text-xs font-bold text-zinc-400">{lang === 'en' ? 'Page' : 'စာမျက်နှာ'} {currentPage} / {totalPages}</span>
+          <button disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Next</button>
+        </div>
+      </div>
+    );
+  };
+
+  const handleExportCSV = () => {
+    if (pointRequests.length === 0) return showToast("No data to export.");
+    const headers = ["Date", "Username", "Provider", "Transaction ID", "Requested Amount", "Approved Amount", "Status", "Remark"];
+    const csvContent = [
+       headers.join(","),
+       ...pointRequests.map(r => [
+          `"${formatDateTime(r.date)}"`,
+          `"${r.username}"`,
+          `"${r.provider}"`,
+          `"${r.idCode}"`,
+          `"${r.requestedAmount || ''}"`,
+          `"${r.amount || ''}"`,
+          `"${r.status}"`,
+          `"${r.remark || ''}"`
+       ].join(","))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transaction_history_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const syncLatestData = async () => {
     try {
       const pSnap = await getDoc(doc(db, "SiteData", "pointRequests"));
@@ -379,135 +425,6 @@ export default function SweetieWorldApp() {
     }
   };
 
-  // --- AUTO SYNC EVERY 30 SECONDS (Polling Mechanism) ---
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const interval = setInterval(() => {
-      syncLatestData();
-    }, 30000); // Every 30 seconds
-    return () => clearInterval(interval);
-  }, [isInitialLoad]);
-
-  // --- Firebase Data Auto-Saving ---
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
-
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
-  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
-  const [authError, setAuthError] = useState('');
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false); 
-  const [userMenuTab, setUserMenuTab] = useState<'menu' | 'messages'>('menu');
-
-  const [activeTab, setActiveTab] = useState<'home' | 'promo' | 'faq'>('home');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  
-  const [pointModalOpen, setPointModalOpen] = useState(false);
-  const [payStep, setPayStep] = useState<'menu' | 'providers' | 'form' | 'history'>('menu');
-  const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  const [idCodeInput, setIdCodeInput] = useState('');
-  
-  const [selectedShow, setSelectedShow] = useState<VideoCardData | null>(null);
-  const [vipModalShow, setVipModalShow] = useState<VideoCardData | null>(null);
-  const [scheduleAlert, setScheduleAlert] = useState<{isOpen: boolean, date: string, show: VideoCardData} | null>(null);
-  
-  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('users');
-  
-  const [adminUserSearch, setAdminUserSearch] = useState('');
-  const [adminPointSearch, setAdminPointSearch] = useState('');
-  const [adminHistorySearch, setAdminHistorySearch] = useState('');
-  const [adminLogSearch, setAdminLogSearch] = useState('');
-  const [adminUploadedSearch, setAdminUploadedSearch] = useState('');
-  const [adminPromoSearch, setAdminPromoSearch] = useState('');
-  const [adminFaqSearch, setAdminFaqSearch] = useState('');
-  
-  const [approveAmounts, setApproveAmounts] = useState<Record<string, number>>({});
-  const [editUserModal, setEditUserModal] = useState<{isOpen: boolean, mode: 'create'|'edit', oldUsername?: string}>({isOpen: false, mode: 'create'});
-  const [editUserForm, setEditUserForm] = useState<UserData>({username: '', email: '', password: '', role: 'user', points: 0, vip: false, unlockedShows: []});
-  const [editUserRemark, setEditUserRemark] = useState(''); 
-
-  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
-  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
-  const [editingShowId, setEditingShowId] = useState<string | null>(null);
-  const [newPromo, setNewPromo] = useState<Partial<PromoItem>>({ title_en: '', body_en: '', title_mm: '', body_mm: '', image: '' });
-  const [newFaq, setNewFaq] = useState({ title_en: '', body_en: '', title_mm: '', body_mm: '' });
-  const [newVideo, setNewVideo] = useState<Partial<VideoCardData>>({ episodes: [], title_en: '', title_mm: '', pointsPerEp: 20 });
-  const [epCount, setEpCount] = useState(1);
-  const [newCategory, setNewCategory] = useState('');
-  const [newPlatform, setNewPlatform] = useState('');
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    showToast(t.msgCopied);
-  };
-
-  const handleDownloadQR = async (url: string, providerName: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `${providerName}_QR.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-      showToast("QR Code Downloaded!");
-    } catch (error) {
-      // Fallback 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${providerName}_QR.png`;
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  };
-
-  // Pagination UI Render Component
-  const renderPagination = (currentPage: number, setPage: (p: number) => void, itemsPerPage: number, setItemsPerPage: (p: number) => void, totalItems: number) => {
-    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-    return (
-      <div className="flex flex-wrap justify-between items-center mt-4 bg-black/40 p-3 rounded-xl border border-zinc-800 gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
-          <span>{lang === 'en' ? 'Show' : 'ပြသရန်'}</span>
-          <select value={itemsPerPage} onChange={e => {setItemsPerPage(Number(e.target.value)); setPage(1);}} className="bg-black border border-zinc-700 rounded px-2 py-1 text-white outline-none cursor-pointer">
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span>{lang === 'en' ? 'entries' : 'ခု'}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Prev</button>
-          <span className="text-xs font-bold text-zinc-400">{lang === 'en' ? 'Page' : 'စာမျက်နှာ'} {currentPage} / {totalPages}</span>
-          <button disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg disabled:opacity-50 text-xs font-bold transition">Next</button>
-        </div>
-      </div>
-    );
-  };
-
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -517,11 +434,8 @@ export default function SweetieWorldApp() {
       const newUser: UserData = { ...authForm, role: 'user', points: 0, vip: false, unlockedShows: [] };
       setUsers([...users, newUser]);
       setCurrentUser(newUser);
-      
-      // Save Remember Me
       if (rememberMe) localStorage.setItem('jbsehunjaes_auth', newUser.username);
       else localStorage.removeItem('jbsehunjaes_auth');
-      
       showToast(t.msgSuccess);
       setAuthModalOpen(false);
       setAuthForm({ username: '', email: '', password: '' });
@@ -534,11 +448,8 @@ export default function SweetieWorldApp() {
       );
       if (user) {
         setCurrentUser(user);
-        
-        // Save Remember Me
         if (rememberMe) localStorage.setItem('jbsehunjaes_auth', user.username);
         else localStorage.removeItem('jbsehunjaes_auth');
-        
         showToast(t.msgLoginSucc);
         setAuthModalOpen(false);
         setAuthForm({ username: '', email: '', password: '' });
@@ -577,41 +488,28 @@ export default function SweetieWorldApp() {
 
   const handlePointSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !selectedProvider || !idCodeInput.trim()) return;
-    
+    if (!currentUser || !selectedProvider || !idCodeInput.trim() || !amountInput.trim()) return;
     const isDuplicate = pointRequests.some(r => r.idCode.trim().toLowerCase() === idCodeInput.trim().toLowerCase());
-    if (isDuplicate) {
-      return setAlertModal({ message: t.duplicateId });
-    }
-    
+    if (isDuplicate) return setAlertModal({ message: t.duplicateId });
     const newReq: PointRequest = {
-      id: Date.now().toString(),
-      username: currentUser.username,
-      provider: selectedProvider.name,
-      idCode: idCodeInput.trim(),
-      date: new Date().toISOString(),
-      status: 'pending'
+      id: Date.now().toString(), username: currentUser.username, provider: selectedProvider.name,
+      idCode: idCodeInput.trim(), requestedAmount: Number(amountInput), date: new Date().toISOString(), status: 'pending'
     };
-    
     const newNoti: NotificationData = {
       id: Date.now().toString()+'_noti', targetUser: 'admin',
-      message: `Point Request from ${currentUser.username} (ID: ${idCodeInput.trim()})`,
+      message: `Point Request from ${currentUser.username} (ID: ${idCodeInput.trim()}) - Amount: ${amountInput}`,
       date: new Date().toISOString(), isRead: false, actionType: 'point_request'
     };
-
     setNotifications([newNoti, ...notifications]);
     setPointRequests([newReq, ...pointRequests]);
     showToast(t.msgPointSent);
     setIdCodeInput('');
+    setAmountInput('');
     setPayStep('history');
   };
 
   const handleAdminSaveUser = () => {
-    if (!editUserRemark.trim() && editUserModal.mode === 'edit') {
-       setAlertModal({ message: "လုပ်ဆောင်ရသည့် အကြောင်းရင်း (Remark) ကို ထည့်ပေးပါ။" });
-       return;
-    }
-
+    if (!editUserRemark.trim() && editUserModal.mode === 'edit') return setAlertModal({ message: "လုပ်ဆောင်ရသည့် အကြောင်းရင်း (Remark) ကို ထည့်ပေးပါ။" });
     if (editUserModal.mode === 'create') {
       const exists = users.find(u => u.username.toLowerCase() === editUserForm.username.trim().toLowerCase() || u.email.toLowerCase() === editUserForm.email.trim().toLowerCase());
       if (exists) return setAlertModal({ message: t.msgExists });
@@ -619,18 +517,9 @@ export default function SweetieWorldApp() {
     } else {
       setUsers(users.map(u => u.username === editUserModal.oldUsername ? {...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()} : u));
       if(currentUser?.username === editUserModal.oldUsername) setCurrentUser({...editUserForm, username: editUserForm.username.trim(), email: editUserForm.email.trim()});
-      
-      // Save Logs & Notification
       if(editUserRemark.trim() && currentUser) {
-         const newLog: AdminLogData = {
-           id: Date.now().toString()+'_log', adminName: currentUser.username, targetUser: editUserForm.username.trim(),
-           action: 'Edit User Profile', remark: editUserRemark.trim(), date: new Date().toISOString()
-         };
-         const newNoti: NotificationData = {
-           id: Date.now().toString()+'_noti', targetUser: editUserForm.username.trim(),
-           message: `Admin မှ သင့်အကောင့်အား ပြင်ဆင်မှုပြုလုပ်ခဲ့ပါသည်။ (Admin Action)`, detail: editUserRemark.trim(),
-           date: new Date().toISOString(), isRead: false, actionType: 'admin_edit'
-         };
+         const newLog: AdminLogData = { id: Date.now().toString()+'_log', adminName: currentUser.username, targetUser: editUserForm.username.trim(), action: 'Edit User Profile', remark: editUserRemark.trim(), date: new Date().toISOString() };
+         const newNoti: NotificationData = { id: Date.now().toString()+'_noti', targetUser: editUserForm.username.trim(), message: `Admin မှ သင့်အကောင့်အား ပြင်ဆင်မှုပြုလုပ်ခဲ့ပါသည်။ (Admin Action)`, detail: editUserRemark.trim(), date: new Date().toISOString(), isRead: false, actionType: 'admin_edit' };
          setAdminLogs([newLog, ...adminLogs]);
          setNotifications([newNoti, ...notifications]);
       }
@@ -644,13 +533,9 @@ export default function SweetieWorldApp() {
   const handleNotiClick = (n: NotificationData) => {
      setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x));
      setNotiDropdownOpen(false);
-     if(n.actionType === 'point_request') {
-        setAdminDashboardOpen(true); setAdminActiveTab('points');
-     } else if (n.actionType === 'point_approve' || n.actionType === 'point_reject') {
-        syncLatestData(); setPayStep('history'); setPointModalOpen(true);
-     } else if (n.actionType === 'admin_edit') {
-        syncLatestData(); setUserMenuTab('messages'); setUserMenuOpen(true);
-     }
+     if(n.actionType === 'point_request') { setAdminDashboardOpen(true); setAdminActiveTab('points'); } 
+     else if (n.actionType === 'point_approve' || n.actionType === 'point_reject') { syncLatestData(); setPayStep('history'); setPointModalOpen(true); } 
+     else if (n.actionType === 'admin_edit') { syncLatestData(); setUserMenuTab('messages'); setUserMenuOpen(true); }
   };
 
   const getRequiredPoints = (show: VideoCardData) => {
@@ -658,34 +543,107 @@ export default function SweetieWorldApp() {
     return unreleasedCount * (show.pointsPerEp ?? 20);
   };
 
-  // Bulk Delete Data calculation for History
-  const recordsToDelete = bulkDeleteDate ? pointRequests.filter(r => {
-    const reqD = new Date(r.date); const selD = new Date(bulkDeleteDate); selD.setHours(23, 59, 59, 999); return reqD.getTime() <= selD.getTime();
+  // --- USE EFFECTS FOR FETCHING AND SAVING ---
+  useEffect(() => {
+    setIsClient(true);
+    const loadData = async () => {
+      try {
+        const fetchDoc = async (colName: string, setFn: any, defaultVal: any) => {
+           const snap = await getDoc(doc(db, "SiteData", colName));
+           if (snap.exists() && snap.data().data && snap.data().data.length > 0) { setFn(snap.data().data); } else if (defaultVal) { setFn(defaultVal); }
+        };
+        const snapConfig = await getDoc(doc(db, "SiteData", "siteConfig"));
+        if (snapConfig.exists() && snapConfig.data().data) {
+            let loadedData = snapConfig.data().data;
+            if (!loadedData.socialLinks) {
+               loadedData.socialLinks = [
+                  { id: '1', platform: 'Facebook', url: loadedData.fbLink || '#', logo: '' },
+                  { id: '2', platform: 'Telegram', url: loadedData.tgLink || '#', logo: '' },
+                  { id: '3', platform: 'Viber', url: loadedData.viberLink || '#', logo: '' }
+               ];
+            }
+            setSiteConfig(loadedData);
+        } else {
+            setSiteConfig(DEFAULT_CONFIG);
+        }
+        await fetchDoc("users", setUsers, INITIAL_USERS);
+        const showsSnap = await getDoc(doc(db, "SiteData", "shows"));
+        if (showsSnap.exists() && showsSnap.data().data && showsSnap.data().data.length > 0) {
+           const parsedShows = showsSnap.data().data;
+           const migratedShows = parsedShows.map((s: any) => ({
+              ...s, episodes: s.episodes.map((ep: any) => ({ ...ep, links: ep.links ? ep.links : (ep.link ? [{ platform: 'Default', url: ep.link }] : []) }))
+           }));
+           setShows(migratedShows);
+        } else { setShows(INITIAL_SHOWS); }
+        await fetchDoc("categories", setCategories, INITIAL_CATEGORIES);
+        await fetchDoc("platforms", setPlatforms, INITIAL_PLATFORMS);
+        await fetchDoc("promotions", setPromotions, [{ id: '1', title_en: 'Welcome Bonus', body_en: 'New members get free VIP trial for 3 days!', title_mm: 'အကောင့်သစ် Bonus', body_mm: 'အကောင့်အသစ် ဖွင့်သူများအတွက် VIP ၃ ရက် အခမဲ့ရရှိမည်!' }]);
+        await fetchDoc("faqs", setFaqs, [{ id: '1', title_en: 'How to buy points?', body_en: 'Transfer via KPay or WavePay. Then submit your Transaction ID.', title_mm: 'Point ဘယ်လိုဝယ်ရမလဲ?', body_mm: 'KPay, WavePay မှ ငွေလွှဲပါ။ ပြီးလျှင် Transaction ID အား ထည့်ပေးပါ။' }]);
+        await fetchDoc("pointRequests", setPointRequests, []);
+        await fetchDoc("notifications", setNotifications, []);
+        await fetchDoc("adminLogs", setAdminLogs, []);
+        const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
+        if (providerSnap.exists() && providerSnap.data().data) { setPaymentProviders(providerSnap.data().data); } else { setPaymentProviders(INITIAL_PROVIDERS); }
+      } catch(e) { console.error("Firebase fetch error", e); } finally { setIsInitialLoad(false); }
+    };
+    loadData();
+
+    const handleClickOutside = (event: any) => { if (notiRef.current && !notiRef.current.contains(event.target)) { setNotiDropdownOpen(false); } };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isInitialLoad || users.length === 0) return;
+    const savedUser = localStorage.getItem('jbsehunjaes_auth');
+    if (savedUser && !currentUser) {
+      const found = users.find(u => u.username === savedUser);
+      if (found) setCurrentUser(found);
+      else localStorage.removeItem('jbsehunjaes_auth');
+    }
+  }, [isInitialLoad, users]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    const interval = setInterval(() => { syncLatestData(); }, 30000); 
+    return () => clearInterval(interval);
+  }, [isInitialLoad]);
+
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
+
+  // --- COMPUTED DATA VARIABLES ---
+  const recordsToDelete = (bulkDeleteDateFrom && bulkDeleteDateTo) ? pointRequests.filter(r => {
+    const reqD = new Date(r.date).getTime();
+    const fromD = new Date(bulkDeleteDateFrom); fromD.setHours(0, 0, 0, 0);
+    const toD = new Date(bulkDeleteDateTo); toD.setHours(23, 59, 59, 999);
+    return reqD >= fromD.getTime() && reqD <= toD.getTime();
   }) : [];
 
-  // Bulk Delete Data calculation for Admin Logs
   const logsToDelete = adminLogBulkDate ? adminLogs.filter(l => {
     const logD = new Date(l.date); const selD = new Date(adminLogBulkDate); selD.setHours(23, 59, 59, 999); return logD.getTime() <= selD.getTime();
   }) : [];
 
   const filteredShows = shows.filter(s => {
     const matchCat = activeCategory === 'All' || s.category === activeCategory;
-    const matchSearch = (s.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         s.title_mm?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchSearch = (s.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) || s.title_mm?.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchCat && matchSearch;
   });
 
-  const adminFilteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(adminUserSearch.toLowerCase()) || 
-    u.email.toLowerCase().includes(adminUserSearch.toLowerCase())
-  );
+  const adminFilteredUsers = users.filter(u => u.username.toLowerCase().includes(adminUserSearch.toLowerCase()) || u.email.toLowerCase().includes(adminUserSearch.toLowerCase()));
   const paginatedUsers = adminFilteredUsers.slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage);
 
   const adminPendingPoints = pointRequests.filter(p => p.status === 'pending');
-  const adminFilteredPoints = adminPendingPoints.filter(p => 
-    p.username.toLowerCase().includes(adminPointSearch.toLowerCase()) || 
-    p.idCode.toLowerCase().includes(adminPointSearch.toLowerCase())
-  );
+  const adminFilteredPoints = adminPendingPoints.filter(p => p.username.toLowerCase().includes(adminPointSearch.toLowerCase()) || p.idCode.toLowerCase().includes(adminPointSearch.toLowerCase()));
 
   const adminFilteredHistory = pointRequests.filter(r => r.username.toLowerCase().includes(adminHistorySearch.toLowerCase()) || r.idCode.toLowerCase().includes(adminHistorySearch.toLowerCase()));
   const paginatedHistory = adminFilteredHistory.slice((historyPage - 1) * historyPerPage, historyPage * historyPerPage);
@@ -693,23 +651,12 @@ export default function SweetieWorldApp() {
   const adminFilteredLogs = adminLogs.filter(l => l.adminName.toLowerCase().includes(adminLogSearch.toLowerCase()) || l.targetUser.toLowerCase().includes(adminLogSearch.toLowerCase()) || l.action.toLowerCase().includes(adminLogSearch.toLowerCase()));
   const paginatedLogs = adminFilteredLogs.slice((adminLogPage - 1) * adminLogPerPage, adminLogPage * adminLogPerPage);
 
-  const adminUploadedShowsFiltered = shows.filter(s => 
-    (s.title_en?.toLowerCase().includes(adminUploadedSearch.toLowerCase()) || 
-     s.title_mm?.toLowerCase().includes(adminUploadedSearch.toLowerCase()))
-  );
+  const adminUploadedShowsFiltered = shows.filter(s => (s.title_en?.toLowerCase().includes(adminUploadedSearch.toLowerCase()) || s.title_mm?.toLowerCase().includes(adminUploadedSearch.toLowerCase())));
   const paginatedShows = adminUploadedShowsFiltered.slice((showsPage - 1) * showsPerPage, showsPage * showsPerPage);
 
-  const adminFilteredPromos = promotions.filter(p => 
-    (p.title_en?.toLowerCase().includes(adminPromoSearch.toLowerCase()) || 
-     p.title_mm?.toLowerCase().includes(adminPromoSearch.toLowerCase()))
-  );
+  const adminFilteredPromos = promotions.filter(p => (p.title_en?.toLowerCase().includes(adminPromoSearch.toLowerCase()) || p.title_mm?.toLowerCase().includes(adminPromoSearch.toLowerCase())));
+  const adminFilteredFaqs = faqs.filter(f => (f.title_en?.toLowerCase().includes(adminFaqSearch.toLowerCase()) || f.title_mm?.toLowerCase().includes(adminFaqSearch.toLowerCase())));
 
-  const adminFilteredFaqs = faqs.filter(f => 
-    (f.title_en?.toLowerCase().includes(adminFaqSearch.toLowerCase()) || 
-     f.title_mm?.toLowerCase().includes(adminFaqSearch.toLowerCase()))
-  );
-
-  // User & Admin Notifications Logic
   const myNotis = notifications.filter(n => n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const unreadNotiCount = myNotis.filter(n => !n.isRead).length;
 
@@ -1089,16 +1036,17 @@ export default function SweetieWorldApp() {
                           <p className="text-sm font-bold text-white mb-1">User: <span className="text-blue-400">{req.username}</span></p>
                           <p className="text-xs text-zinc-400 mb-0.5">Provider: {req.provider}</p>
                           <p className="text-xs text-[#fcd385] font-bold">Txn ID: {req.idCode}</p>
+                          {req.requestedAmount && <p className="text-xs text-emerald-400 font-bold mt-0.5">Amount: {req.requestedAmount}</p>}
                           <p className="text-[10px] text-zinc-500 mt-1">{formatDateTime(req.date)}</p>
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
                           <input 
-                            type="number" min="1" placeholder="Amount" value={approveAmounts[req.id] || ''}
+                            type="number" min="1" placeholder="Amount" value={approveAmounts[req.id] || req.requestedAmount || ''}
                             onChange={(e) => setApproveAmounts({...approveAmounts, [req.id]: Number(e.target.value)})}
                             className="w-24 bg-zinc-900 border border-zinc-700 p-2 text-sm text-white rounded-lg focus:outline-none focus:border-[#fcd385]"
                           />
                           <button onClick={() => {
-                            const amount = approveAmounts[req.id] || 0;
+                            const amount = approveAmounts[req.id] || req.requestedAmount || 0;
                             if (amount <= 0) return setAlertModal({ message: "Please enter a valid amount." });
                             
                             const newNoti: NotificationData = {
@@ -1144,21 +1092,35 @@ export default function SweetieWorldApp() {
 
             {adminActiveTab === 'history' && (
               <div className="animate-fade-in space-y-6">
-                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabHistory}</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabHistory}</h3>
+                  <button onClick={handleExportCSV} className="flex items-center gap-1.5 text-xs bg-emerald-900/40 border border-emerald-700/50 hover:border-emerald-400 text-emerald-400 px-3 py-2 rounded-lg transition shadow-lg">
+                      <FileSpreadsheet className="w-4 h-4" /> {lang === 'en' ? 'Export CSV' : 'Excel ဆွဲချမည်'}
+                  </button>
+                </div>
                 <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 font-sans">
                   
                   {/* Bulk Delete Section */}
                   <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-red-400 mb-1">Clear Old Records (On or Before)</label>
-                      <input 
-                        type="date" 
-                        value={bulkDeleteDate} 
-                        onChange={e => setBulkDeleteDate(e.target.value)} 
-                        className="bg-black/50 border border-red-900/50 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 w-full sm:w-auto outline-none"
-                      />
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-red-400 mb-2">Delete Records (Date Range)</label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input 
+                          type="date" 
+                          value={bulkDeleteDateFrom} 
+                          onChange={e => setBulkDeleteDateFrom(e.target.value)} 
+                          className="bg-black/50 border border-red-900/50 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                        />
+                        <span className="text-zinc-500 font-bold text-xs">{lang === 'en' ? 'TO' : 'အထိ'}</span>
+                        <input 
+                          type="date" 
+                          value={bulkDeleteDateTo} 
+                          onChange={e => setBulkDeleteDateTo(e.target.value)} 
+                          className="bg-black/50 border border-red-900/50 p-2 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 outline-none"
+                        />
+                      </div>
                     </div>
-                    {bulkDeleteDate && (
+                    {(bulkDeleteDateFrom && bulkDeleteDateTo) && (
                        <div className="flex items-center gap-4 mt-2 sm:mt-0">
                          <span className="text-sm font-bold text-red-300 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-900/50">
                            {recordsToDelete.length} records found
@@ -1171,7 +1133,8 @@ export default function SweetieWorldApp() {
                                onConfirm: () => {
                                  const remaining = pointRequests.filter(r => !recordsToDelete.includes(r));
                                  setPointRequests(remaining);
-                                 setBulkDeleteDate('');
+                                 setBulkDeleteDateFrom('');
+                                 setBulkDeleteDateTo('');
                                  showToast(`${recordsToDelete.length} records deleted.`);
                                }
                              })
@@ -1203,6 +1166,7 @@ export default function SweetieWorldApp() {
                           <div>
                             <p className="text-sm font-bold text-white mb-1">User: <span className="text-blue-400">{req.username}</span></p>
                             <p className="text-xs text-zinc-400 mb-0.5">Provider: {req.provider} | Txn ID: <span className="text-[#fcd385] font-mono">{req.idCode}</span></p>
+                            {req.requestedAmount && <p className="text-[11px] text-emerald-400 font-bold mt-0.5">Req Amount: {req.requestedAmount}</p>}
                             {req.remark && <p className="text-[11px] text-red-300 mt-1 italic">Reason: {req.remark}</p>}
                             <p className="text-[10px] text-zinc-500 mt-1">{formatDateTime(req.date)}</p>
                           </div>
@@ -1463,30 +1427,25 @@ export default function SweetieWorldApp() {
                         ))}
                       </div>
 
-                      <div className="mt-6 pt-4 border-t border-zinc-800 flex flex-col gap-2">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input type="text" placeholder="Name (e.g. KBZ Pay)" value={newProvider.name || ''} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
-                          <input type="text" placeholder="Account No" value={newProvider.accountNo || ''} onChange={e => setNewProvider({...newProvider, accountNo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input type="text" placeholder="Logo Image URL" value={newProvider.logo || ''} onChange={e => setNewProvider({...newProvider, logo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
-                          <select value={newProvider.type || ''} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-auto">
-                            <option value="banks">Bank</option>
-                            <option value="ewallets">E-Wallet</option>
-                          </select>
-                          <button onClick={() => {
-                            if(newProvider.name.trim()) {
-                              const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600', accountNo: newProvider.accountNo, logo: newProvider.logo };
-                              if (newProvider.type === 'banks') {
-                                setPaymentProviders({...paymentProviders, banks: [...paymentProviders.banks, newProv]});
-                              } else {
-                                setPaymentProviders({...paymentProviders, ewallets: [...paymentProviders.ewallets, newProv]});
-                              }
-                              setNewProvider({ name: '', type: 'banks', accountNo: '', logo: '' });
-                              showToast("Payment method added.");
+                      <div className="mt-6 pt-4 border-t border-zinc-800 flex flex-col sm:flex-row gap-2">
+                        <input type="text" placeholder="Name (e.g. KBZ Pay)" value={newProvider.name || ''} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                        <input type="text" placeholder="Account No" value={newProvider.accountNo || ''} onChange={e => setNewProvider({...newProvider, accountNo: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg flex-1 text-sm text-white focus:outline-none focus:border-[#fcd385]" />
+                        <select value={newProvider.type || ''} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="bg-black border border-zinc-700 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:border-[#fcd385] w-full sm:w-auto">
+                          <option value="banks">Bank</option>
+                          <option value="ewallets">E-Wallet</option>
+                        </select>
+                        <button onClick={() => {
+                          if(newProvider.name.trim()) {
+                            const newProv = { id: 'prov-'+Date.now(), name: newProvider.name, qrImage: '', color: 'bg-zinc-600', accountNo: newProvider.accountNo, logo: newProvider.logo };
+                            if (newProvider.type === 'banks') {
+                              setPaymentProviders({...paymentProviders, banks: [...paymentProviders.banks, newProv]});
+                            } else {
+                              setPaymentProviders({...paymentProviders, ewallets: [...paymentProviders.ewallets, newProv]});
                             }
-                          }} className="bg-[#fcd385] px-4 py-2 sm:py-0 rounded-lg text-black text-sm font-bold w-full sm:w-auto">{t.addBtn}</button>
-                        </div>
+                            setNewProvider({ name: '', type: 'banks', accountNo: '', logo: '' });
+                            showToast("Payment method added.");
+                          }
+                        }} className="bg-[#fcd385] px-4 py-2 sm:py-0 rounded-lg text-black text-sm font-bold w-full sm:w-auto">{t.addBtn}</button>
                       </div>
                     </div>
 
@@ -2343,6 +2302,10 @@ export default function SweetieWorldApp() {
                         <p className="text-xs text-[#fcd385] mb-2">{t.payTxnId}</p>
                         <input type="text" required placeholder="Enter ID..." value={idCodeInput} onChange={e => setIdCodeInput(e.target.value)} className="w-full bg-black/50 border border-white/20 p-3.5 rounded-xl text-white text-sm focus:border-[#fcd385] outline-none transition shadow-inner" />
                       </div>
+                      <div className="mt-4">
+                        <p className="text-xs text-[#fcd385] mb-2">{lang === 'en' ? 'Amount' : 'ငွေပမာဏ'}</p>
+                        <input type="number" min="1" required placeholder="Enter Amount..." value={amountInput} onChange={e => setAmountInput(e.target.value)} className="w-full bg-black/50 border border-white/20 p-3.5 rounded-xl text-white text-sm focus:border-[#fcd385] outline-none transition shadow-inner" />
+                      </div>
                       <button type="submit" className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e0a0a] font-black py-3.5 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-[0_0px_0_#a88621] active:translate-y-1 transition-all">{t.paySubmitBtn}</button>
                     </form>
                   </div>
@@ -2386,6 +2349,7 @@ export default function SweetieWorldApp() {
                             <div>
                                <p className="text-xs text-[#fcd385] mb-0.5">{req.provider}</p>
                                <p className="text-sm text-white font-bold tracking-wider">{req.idCode}</p>
+                               {req.requestedAmount && <p className="text-[11px] text-emerald-400 font-bold mt-0.5">Req Amount: {req.requestedAmount}</p>}
                                {req.remark && req.status === 'rejected' && (
                                   <p className="text-[11px] text-red-300 mt-2 bg-red-950/80 p-2 rounded-lg border border-red-500/50 shadow-inner">
                                     <span className="font-bold block mb-0.5 opacity-80">{t.remarkLabel}</span> {req.remark}
@@ -2562,10 +2526,3 @@ export default function SweetieWorldApp() {
     </div>
   );
 }
-
-const MessageSquareIcon = ({unreadCount}: {unreadCount: number}) => (
-  <div className="relative">
-    <MessageCircle className="w-4 h-4 text-[#fcd385]" />
-    {unreadCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-600 w-2.5 h-2.5 rounded-full border border-black animate-pulse"></span>}
-  </div>
-);
