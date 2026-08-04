@@ -111,7 +111,7 @@ const TRANSLATIONS = {
     vipNotRequired: "VIP Not Required", allEpsAvailable: "All episodes are available to watch.",
     unlockAll: "Unlock All Episodes", unlockDesc: "Points are required to unlock all episodes of this series.", required: "Required:",
     balance: "Your Balance:", unlockBtn: "Deduct Points & Unlock", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
-    adminTabUsers: "User Dashboard", adminTabPoints: "Point Requests", adminTabHistory: "Transaction History", 
+    adminTabDashboard: "Dashboard", adminTabUsers: "User Dashboard", adminTabPoints: "Point Requests", adminTabHistory: "Transaction History",
     adminTabSettings: "System Settings", adminTabPromo: "Manage Promotions", adminTabFaq: "Manage FAQs", adminTabUpload: "Upload Movies / Series",
     adminTabLogs: "Action Logs",
     userMgmt: "User Management", searchUser: "Search Username or Email...", searchPoint: "Search Username or ID Code...",
@@ -150,8 +150,8 @@ const TRANSLATIONS = {
     vipUnlockedTitle: "VIP ဝင်ပြီးပါပြီ", vipUnlockedDesc: "ဒီဇာတ်ကားအတွက် VIP အပြည့်အစုံ ဝင်ရောက်ထားပြီး ဖြစ်ပါသည်။",
     vipNotRequired: "VIP ဝင်ရန်မလိုအပ်ပါ", allEpsAvailable: "အပိုင်းအားလုံးကို အခမဲ့ကြည့်ရှုနိုင်ပြီဖြစ်ပါသည်။",
     unlockAll: "အပိုင်းအားလုံး ဖွင့်ရန်", unlockDesc: "ဒီဇာတ်ကားရဲ့ အပိုင်းအားလုံးကို VIP အနေနဲ့ကြည့်ရန် Points လိုအပ်ပါသည်။", required: "လိုအပ်သော Point:",
-    balance: "သင့်လက်ကျန်:", unlockBtn: "Point ဖျက်၍ ဝင်မည်", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
-    adminTabUsers: "အကောင့်ဖွင့်ထားသော User များ", adminTabPoints: "Point တောင်းဆိုမှုများ", adminTabHistory: "ငွေသွင်းမှတ်တမ်းများ", 
+    balance: "သင့်လက်ကျန်:", unlockBtn: "Point ပေးချေ၍ VIP ဝင်မည်", adminSystem: "SUPPORT SYSTEM", adminRole: "Role: Admin",
+    adminTabDashboard: "အနှစ်ချုပ် (Dashboard)", adminTabUsers: "အကောင့်ဖွင့်ထားသော User များ", adminTabPoints: "Point တောင်းဆိုမှုများ", adminTabHistory: "ငွေသွင်းမှတ်တမ်းများ",
     adminTabSettings: "စနစ် အပြင်အဆင်များ", adminTabPromo: "ပရိုမိုးရှင်း စီမံရန်", adminTabFaq: "အမေးအဖြေ (FAQ) စီမံရန်", adminTabUpload: "ဇာတ်ကား / ဇာတ်လမ်းတွဲ တင်ရန်", 
     adminTabLogs: "အက်ဒမင် စီမံမှု မှတ်တမ်းများ",
     userMgmt: "အသုံးပြုသူများ စီမံရန်", searchUser: "Username (သို့) Email ရှာရန်...", searchPoint: "Username သို့မဟုတ် ID Code ဖြင့်ရှာပါ...", 
@@ -282,7 +282,9 @@ export default function SweetieWorldApp() {
 
   // ADMIN STATES
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('users');
+  const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('dashboard');
+  const [dashDateFrom, setDashDateFrom] = useState('');
+  const [dashDateTo, setDashDateTo] = useState('');
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminPointSearch, setAdminPointSearch] = useState('');
   const [adminHistorySearch, setAdminHistorySearch] = useState('');
@@ -444,12 +446,21 @@ export default function SweetieWorldApp() {
   useEffect(() => {
     if (isInitialLoad || users.length === 0) return;
     const savedUser = localStorage.getItem('jbsehunjaes_auth');
+    
     if (savedUser && !currentUser) {
       const found = users.find(u => u.username === savedUser);
-      if (found) setCurrentUser(found);
-      else localStorage.removeItem('jbsehunjaes_auth');
+      if (found) {
+        setCurrentUser(found);
+      } else {
+        localStorage.removeItem('jbsehunjaes_auth');
+        // အကောင့်မရှိတော့ရင် Login Box ပြရန်
+        if (!authModalOpen) setAuthModalOpen(true);
+      }
+    } else if (!savedUser && !currentUser) {
+      // Website ထဲစဝင်ဝင်ချင်း အကောင့်မဝင်ထားရင် Login Box ပြရန်
+      if (!authModalOpen) setAuthModalOpen(true);
     }
-  }, [isInitialLoad, users]);
+  }, [isInitialLoad]); // users ကို dependency ကနေ ဖြုတ်ထားပါတယ် (ခဏခဏ Box မပေါ်စေဖို့ပါ)
 
   const syncLatestData = async () => {
     try {
@@ -1058,6 +1069,9 @@ export default function SweetieWorldApp() {
                 <h2 className="text-[#ff9d9d] font-black text-lg flex items-center gap-2 mb-4"><LayoutDashboard className="w-5 h-5"/> {t.adminSystem}</h2>
              </div>
              <nav className="flex-1 py-4 flex flex-col gap-1 font-sans">
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('dashboard')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'dashboard' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}>
+                  <LayoutDashboard className="w-5 h-5"/> {t.adminTabDashboard}
+                </button>
                 <button onClick={() => {syncLatestData(); setAdminActiveTab('users')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'users' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Users className="w-5 h-5"/> {t.adminTabUsers}</button>
                 <button onClick={() => {syncLatestData(); setAdminActiveTab('points')}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'points' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}>
                   <div className="relative"><Bell className="w-5 h-5"/>{adminPendingPoints.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"/>}</div> 
@@ -1075,7 +1089,177 @@ export default function SweetieWorldApp() {
           </aside>
 
           <main className="flex-1 p-4 md:p-8 bg-[#111111]">
+
+            {/* ====== NEW DASHBOARD SECTION ====== */}
+            {adminActiveTab === 'dashboard' && (
+              <div className="animate-fade-in space-y-6 font-sans">
+                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.adminTabDashboard}</h3>
+                
+                {/* Date Filters (From & To) */}
+                <div className="bg-[#1f1f1f] p-4 rounded-2xl border border-zinc-800 flex flex-wrap items-center gap-4">
+                   <div className="flex items-center gap-2">
+                     <label className="text-xs font-bold text-zinc-400">From Date:</label>
+                     <input type="date" value={dashDateFrom} onChange={e => setDashDateFrom(e.target.value)} className="bg-black border border-zinc-700 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <label className="text-xs font-bold text-zinc-400">To Date:</label>
+                     <input type="date" value={dashDateTo} onChange={e => setDashDateTo(e.target.value)} className="bg-black border border-zinc-700 px-3 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" />
+                   </div>
+                   <button onClick={() => {setDashDateFrom(''); setDashDateTo('');}} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-2 rounded-lg font-bold transition shadow-lg">Clear Filter</button>
+                </div>
+
+                {(() => {
+                   // Calculate Users Status (Last 1 Month = Active)
+                   const thirtyDaysAgo = new Date();
+                   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                   
+                   const totalUsers = users.length;
+                   const activeUsers = users.filter(u => u.lastLoginAt && new Date(u.lastLoginAt) >= thirtyDaysAgo).length;
+                   const inactiveUsers = totalUsers - activeUsers;
+                   const totalPoints = users.reduce((sum, u) => sum + (u.points || 0), 0);
+
+                   // 1. Get ONLY Approved Point Requests and apply Date Filter
+                   let filteredReqs = pointRequests.filter(req => req.status === 'approved');
+                   if (dashDateFrom && dashDateTo) {
+                     const fromD = new Date(dashDateFrom).setHours(0,0,0,0);
+                     const toD = new Date(dashDateTo).setHours(23,59,59,999);
+                     filteredReqs = filteredReqs.filter(req => {
+                       const d = new Date(req.date).getTime();
+                       return d >= fromD && d <= toD;
+                     });
+                   }
+
+                   // 2. Group by Payment Provider 
+                   const providerStats: Record<string, {count: number, amount: number}> = {};
+                   let grandTotalCount = 0;
+                   let grandTotalAmount = 0;
+
+                   filteredReqs.forEach(req => {
+                      const prov = req.provider || 'Unknown';
+                      const amt = req.amount || 0; // Only uses the actually approved amount
+                      if (!providerStats[prov]) providerStats[prov] = { count: 0, amount: 0 };
+                      providerStats[prov].count += 1;
+                      providerStats[prov].amount += amt;
+                      grandTotalCount += 1;
+                      grandTotalAmount += amt;
+                   });
+
+                   const maxAmount = Math.max(...Object.values(providerStats).map(p => p.amount), 1);
+
+                   return (
+                     <div className="space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                           <div className="bg-gradient-to-br from-[#1a1a1a] to-black p-4 rounded-xl border border-zinc-800 shadow-lg">
+                              <p className="text-xs text-zinc-500 font-bold mb-1">Total Users</p>
+                              <p className="text-2xl font-black text-white">{totalUsers}</p>
+                           </div>
+                           <div className="bg-gradient-to-br from-emerald-900/20 to-black p-4 rounded-xl border border-emerald-900/50 shadow-lg relative overflow-hidden">
+                              <p className="text-xs text-emerald-500/70 font-bold mb-1">Active Users (30d)</p>
+                              <p className="text-2xl font-black text-emerald-400">{activeUsers}</p>
+                           </div>
+                           <div className="bg-gradient-to-br from-red-900/20 to-black p-4 rounded-xl border border-red-900/50 shadow-lg relative overflow-hidden">
+                              <p className="text-xs text-red-500/70 font-bold mb-1">Inactive Users</p>
+                              <p className="text-2xl font-black text-red-400">{inactiveUsers}</p>
+                           </div>
+                           <div className="bg-gradient-to-br from-[#3e1717] to-black p-4 rounded-xl border border-[#fcd385]/30 shadow-lg">
+                              <p className="text-xs text-[#fcd385]/70 font-bold mb-1">Total Points (All Users)</p>
+                              <p className="text-2xl font-black text-[#fcd385]">{totalPoints.toLocaleString()} <span className="text-xs">PTS</span></p>
+                           </div>
+                        </div>
+
+                        {/* Table and 3D Chart Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                           
+                           {/* Data Table */}
+                           <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 shadow-xl overflow-x-auto">
+                              <h4 className="text-sm font-bold text-white mb-4">Approved Transactions (By Method)</h4>
+                              <table className="w-full text-left text-sm text-zinc-300">
+                                 <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                                    <tr>
+                                       <th className="px-4 py-3">Payment Method</th>
+                                       <th className="px-4 py-3 text-right">Transactions</th>
+                                       <th className="px-4 py-3 text-right">Total Amount</th>
+                                    </tr>
+                                 </thead>
+                                 <tbody>
+                                    {Object.keys(providerStats).length === 0 ? (
+                                       <tr><td colSpan={3} className="text-center py-6 text-zinc-500 text-xs">No records found for selected dates.</td></tr>
+                                    ) : (
+                                       Object.entries(providerStats).map(([prov, stats]) => (
+                                         <tr key={prov} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                                            <td className="px-4 py-3 font-bold text-blue-400">{prov}</td>
+                                            <td className="px-4 py-3 text-right font-mono">{stats.count}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-emerald-400">{stats.amount.toLocaleString()}</td>
+                                         </tr>
+                                       ))
+                                    )}
+                                 </tbody>
+                                 {Object.keys(providerStats).length > 0 && (
+                                    <tfoot>
+                                       <tr className="bg-black/40 font-bold border-t-2 border-zinc-700">
+                                          <td className="px-4 py-3 text-[#fcd385]">Grand Total</td>
+                                          <td className="px-4 py-3 text-right text-[#fcd385] font-mono">{grandTotalCount}</td>
+                                          <td className="px-4 py-3 text-right text-emerald-400 font-mono text-base">{grandTotalAmount.toLocaleString()}</td>
+                                       </tr>
+                                    </tfoot>
+                                 )}
+                              </table>
+                           </div>
+
+                           {/* 3D Bar Chart */}
+                           <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 shadow-xl flex flex-col">
+                              <h4 className="text-sm font-bold text-white mb-6">Payment Distribution Chart</h4>
+                              <div className="flex-1 flex items-end justify-around gap-2 pt-10 pb-4 h-64 border-b-2 border-zinc-700 relative">
+                                 {Object.keys(providerStats).length === 0 ? (
+                                    <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-sm">No data to display</div>
+                                 ) : (
+                                    Object.entries(providerStats).map(([prov, stats], idx) => {
+                                       const heightPercent = (stats.amount / maxAmount) * 100;
+                                       // Multiple Colors for different payment methods
+                                       const colors = [
+                                          'from-blue-600 to-blue-900 border-blue-400',
+                                          'from-emerald-600 to-emerald-900 border-emerald-400',
+                                          'from-yellow-500 to-yellow-800 border-yellow-300',
+                                          'from-purple-600 to-purple-900 border-purple-400',
+                                          'from-red-600 to-red-900 border-red-400'
+                                       ];
+                                       const colorClass = colors[idx % colors.length];
+
+                                       return (
+                                         <div key={prov} className="flex flex-col items-center justify-end w-full group">
+                                            {/* Tooltip Value (Hover) */}
+                                            <span className="text-xs font-mono text-white mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black px-2 py-1 rounded shadow-lg">
+                                               {stats.amount.toLocaleString()}
+                                            </span>
+                                            
+                                            {/* CSS 3D Pillar */}
+                                            <div 
+                                              className={`w-12 sm:w-16 rounded-t-sm bg-gradient-to-b ${colorClass} border-t-2 border-l border-r border-black shadow-[4px_4px_10px_rgba(0,0,0,0.8)] relative transition-all duration-500 group-hover:brightness-125`}
+                                              style={{ height: `${Math.max(heightPercent, 5)}%` }}
+                                            >
+                                              {/* 3D side shadow effect */}
+                                              <div className="absolute top-0 right-0 bottom-0 w-3 bg-black/30 rounded-tr-sm"></div>
+                                            </div>
+                                            
+                                            {/* Label Name */}
+                                            <span className="text-[10px] font-bold text-zinc-400 mt-3 text-center truncate w-full px-1" title={prov}>{prov}</span>
+                                         </div>
+                                       )
+                                    })
+                                 )}
+                              </div>
+                           </div>
+
+                        </div>
+                     </div>
+                   );
+                })()}
+              </div>
+            )}
             
+            {/* ====== END NEW DASHBOARD SECTION ====== */}
+
             {adminActiveTab === 'users' && (
               <div className="animate-fade-in space-y-6">
                  <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.userMgmt}</h3>
@@ -2144,6 +2328,13 @@ export default function SweetieWorldApp() {
                       return (
                         <div key={idx} className="flex flex-col gap-1">
                           <button onClick={() => {
+                             // User အကောင့်မဝင်ထားရင် Login Box ကို အရင်ပြမည်
+                             if (!currentUser) {
+                                setAuthMode('login');
+                                setAuthModalOpen(true);
+                                return; // အောက်က Code တွေကို ဆက်မလုပ်အောင် တားထားမည်
+                             }
+
                              if(isReleased) {
                                 setPlatformSelectModal({ep, show: selectedShow});
                              } else {
