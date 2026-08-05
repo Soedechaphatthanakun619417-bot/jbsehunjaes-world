@@ -740,7 +740,8 @@ export default function SweetieWorldApp() {
   }) : [];
 
   const filteredShows = shows.filter(s => {
-    const matchCat = activeCategory === 'All' || s.category === activeCategory;
+    // ဒီနေရာလေးမှာ Latest Releases ကိုပါ ထပ်ပေါင်းထည့်လိုက်ပါ
+    const matchCat = activeCategory === 'All' || activeCategory === 'Latest Releases' || s.category === activeCategory;
     const matchSearch = (s.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) || s.title_mm?.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchCat && matchSearch;
   });
@@ -2144,11 +2145,12 @@ export default function SweetieWorldApp() {
                             vipTelegramLink: newVideo.vipTelegramLink || '', pointsPerEp: newVideo.pointsPerEp || 20
                           };
                           if (editingShowId) {
-                            setShows(shows.map(s => s.id === editingShowId ? itemToSave : s));
-                            setEditingShowId(null);
-                          } else {
-                            setShows([itemToSave, ...shows]);
-                          }
+  // Update လုပ်လိုက်တဲ့ ဇာတ်ကားကို လက်ရှိနေရာကနေဖယ်ပြီး အပေါ်ဆုံး(ထိပ်ဆုံး)သို့ ပို့ပေးရန်
+  setShows([itemToSave, ...shows.filter(s => s.id !== editingShowId)]);
+  setEditingShowId(null);
+} else {
+  setShows([itemToSave, ...shows]);
+}
                           showToast(t.msgUploaded); 
                           setNewVideo({episodes:[], title_en: '', title_mm: '', vipTelegramLink: '', pointsPerEp: 20});
                         }} className="flex-1 bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-lg shadow-lg hover:brightness-110 transition">
@@ -2239,20 +2241,40 @@ export default function SweetieWorldApp() {
       ) : (
         /* HOME VIEW */
         <>
-          <div className="max-w-7xl mx-auto px-4 mt-6 font-sans">
+         
+<div className="w-full px-4 mt-6 font-sans">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
-              {categories.map((cat) => (
+              
+              {/* All ခလုတ် (Category လိုက် အတန်းခွဲပြရန်) */}
+              <button onClick={() => setActiveCategory('All')}
+                className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition border ${
+                  activeCategory === 'All' ? 'bg-[#3e1717] text-[#fcd385] border-[#fcd385]' : 'bg-[#1f1f1f] text-zinc-400 border-zinc-800 hover:text-white'
+                }`}>
+                {lang === 'en' ? 'All' : 'အားလုံး'}
+              </button>
+
+              {/* Latest Releases ခလုတ် (Grid ဖြင့် အကုန်ရောပြရန်) */}
+              <button onClick={() => setActiveCategory('Latest Releases')}
+                className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition border ${
+                  activeCategory === 'Latest Releases' ? 'bg-[#3e1717] text-[#fcd385] border-[#fcd385]' : 'bg-[#1f1f1f] text-zinc-400 border-zinc-800 hover:text-white'
+                }`}>
+                {t.latestReleases}
+              </button>
+
+              {/* ကျန်တဲ့ Category အခြားခလုတ်များ */}
+              {categories.filter(c => c !== 'All').map((cat) => (
                 <button key={cat} onClick={() => setActiveCategory(cat)}
                   className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition border ${
                     activeCategory === cat ? 'bg-[#3e1717] text-[#fcd385] border-[#fcd385]' : 'bg-[#1f1f1f] text-zinc-400 border-zinc-800 hover:text-white'
                   }`}>
-                  {cat === 'All' ? t.latestReleases : cat}
+                  {cat}
                 </button>
               ))}
+              
             </div>
           </div>
 
-          <main className="max-w-7xl mx-auto px-4 mt-6 pb-12 font-sans">
+		<main className="w-full px-4 mt-6 pb-12 font-sans">
             {activeCategory === 'All' && !searchQuery ? (
               <div className="space-y-8">
                 {categories.filter(c => c !== 'All').map(cat => {
