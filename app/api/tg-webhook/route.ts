@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
-// --- FIREBASE CONFIG (သင့် page.tsx မှ Config အတိုင်းပါပဲ) ---
+// --- FIREBASE CONFIG ---
 const firebaseConfig = {
   apiKey: "AIzaSyAPVvbhDa1xJ97b2N4Mm7it4yY1TRSKaDw",
   authDomain: "jbsehunjaes-world.firebaseapp.com",
@@ -19,8 +19,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Telegram Channel ကနေ ပို့တဲ့ Post ဟုတ်မဟုတ် စစ်ဆေးခြင်း
-    const post = body.channel_post;
+    // 🌟 ပြင်ဆင်ထားသော နေရာ: Post အသစ်ရော၊ Edit လုပ်ထားတဲ့ Post အဟောင်းကိုပါ လက်ခံမည် 🌟
+    const post = body.channel_post || body.edited_channel_post;
+    
     if (!post) return NextResponse.json({ success: true, msg: 'Not a channel post' });
 
     // စာသား သို့မဟုတ် ပုံ/ဗီဒီယိုရဲ့ Caption ကို ယူခြင်း
@@ -38,7 +39,6 @@ export async function POST(request: Request) {
     if (post.chat.username) {
       tgLink = `https://t.me/${post.chat.username}/${post.message_id}`;
     } else {
-      // အကယ်၍ Private ထဲ တင်မိပါက အလုပ်လုပ်စေရန် (Fallback)
       const chatIdStr = String(post.chat.id).replace('-100', '');
       tgLink = `https://t.me/c/${chatIdStr}/${post.message_id}`;
     }
