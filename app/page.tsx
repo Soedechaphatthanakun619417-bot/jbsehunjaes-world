@@ -259,6 +259,13 @@ export default function SweetieWorldApp() {
   const [notiDropdownOpen, setNotiDropdownOpen] = useState(false);
   const [contactFabOpen, setContactFabOpen] = useState(false);
   const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null);
+  
+  // NEW: Dashboard Modal States
+  const [showInactiveUsersModal, setShowInactiveUsersModal] = useState(false);
+  const [showPointsSpentModal, setShowPointsSpentModal] = useState(false);
+  const [inactiveUserSearch, setInactiveUserSearch] = useState('');
+  const [pointsSpentSearch, setPointsSpentSearch] = useState('');
+  const [selectedMethodForDetail, setSelectedMethodForDetail] = useState<string | null>(null);
 
   // PAYMENT STATES
   const [pointModalOpen, setPointModalOpen] = useState(false);
@@ -1168,6 +1175,12 @@ export default function SweetieWorldApp() {
                    const activeUsers = users.filter(u => u.lastLoginAt && new Date(u.lastLoginAt) >= thirtyDaysAgo).length;
                    const inactiveUsers = totalUsers - activeUsers;
                    const totalPoints = users.reduce((sum, u) => sum + (u.points || 0), 0);
+                   
+                   // NEW: User များ VIP ဝယ်ရန် သုံးလိုက်သော Point အားလုံးကို ပေါင်းခြင်း
+                   const totalPointsSpent = users.reduce((sum, u) => {
+                      const spent = (u.pointHistory || []).filter(log => log.type === 'buy_vip').reduce((s, log) => s + Math.abs(log.amount), 0);
+                      return sum + spent;
+                   }, 0);
 
                    // 1. Get ONLY Approved Point Requests and apply Date Filter
                    let filteredReqs = pointRequests.filter(req => req.status === 'approved');
@@ -1200,7 +1213,7 @@ export default function SweetieWorldApp() {
                    return (
                      <div className="space-y-6">
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                            <div className="bg-gradient-to-br from-[#1a1a1a] to-black p-4 rounded-xl border border-zinc-800 shadow-lg">
                               <p className="text-xs text-zinc-500 font-bold mb-1">Total Users</p>
                               <p className="text-2xl font-black text-white">{totalUsers}</p>
@@ -1209,13 +1222,18 @@ export default function SweetieWorldApp() {
                               <p className="text-xs text-emerald-500/70 font-bold mb-1">Active Users (30d)</p>
                               <p className="text-2xl font-black text-emerald-400">{activeUsers}</p>
                            </div>
-                           <div className="bg-gradient-to-br from-red-900/20 to-black p-4 rounded-xl border border-red-900/50 shadow-lg relative overflow-hidden">
-                              <p className="text-xs text-red-500/70 font-bold mb-1">Inactive Users</p>
+                           <div onClick={() => setShowInactiveUsersModal(true)} className="bg-gradient-to-br from-red-900/20 to-black p-4 rounded-xl border border-red-900/50 shadow-lg relative overflow-hidden cursor-pointer hover:border-red-500 transition group">
+                              <p className="text-xs text-red-500/70 font-bold mb-1 group-hover:text-red-400 transition">Inactive Users</p>
                               <p className="text-2xl font-black text-red-400">{inactiveUsers}</p>
                            </div>
                            <div className="bg-gradient-to-br from-[#3e1717] to-black p-4 rounded-xl border border-[#fcd385]/30 shadow-lg">
-                              <p className="text-xs text-[#fcd385]/70 font-bold mb-1">Total Points (All Users)</p>
+                              <p className="text-xs text-[#fcd385]/70 font-bold mb-1">Total Points (Remaining)</p>
                               <p className="text-2xl font-black text-[#fcd385]">{totalPoints.toLocaleString()} <span className="text-xs">PTS</span></p>
+                           </div>
+                           {/* NEW: Total Points Spent Card */}
+                           <div onClick={() => setShowPointsSpentModal(true)} className="bg-gradient-to-br from-purple-900/20 to-black p-4 rounded-xl border border-purple-500/30 shadow-lg cursor-pointer hover:border-purple-400 transition group">
+                              <p className="text-xs text-purple-400/70 font-bold mb-1 group-hover:text-purple-300 transition">Total Points Spent</p>
+                              <p className="text-2xl font-black text-purple-400">{totalPointsSpent.toLocaleString()} <span className="text-xs">PTS</span></p>
                            </div>
                         </div>
 
@@ -1239,7 +1257,9 @@ export default function SweetieWorldApp() {
                                     ) : (
                                        Object.entries(providerStats).map(([prov, stats]) => (
                                          <tr key={prov} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
-                                            <td className="px-4 py-3 font-bold text-blue-400">{prov}</td>
+                                            <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline hover:text-blue-300" onClick={() => setSelectedMethodForDetail(prov)}>
+                                                {prov} <span className="text-[10px] text-zinc-500 ml-1">(View Detail)</span>
+                                            </td>
                                             <td className="px-4 py-3 text-right font-mono">{stats.count}</td>
                                             <td className="px-4 py-3 text-right font-mono text-emerald-400">{stats.amount.toLocaleString()}</td>
                                          </tr>
@@ -1334,32 +1354,47 @@ export default function SweetieWorldApp() {
                       </button>
                    </div>
 
-                   <div className="min-w-[600px]">
-                     {paginatedUsers.length === 0 ? (
-                        <p className="text-zinc-500 text-sm py-4">No users found.</p>
-                     ) : paginatedUsers.map(u => (
-                        <div key={u.username} className="grid grid-cols-5 gap-4 items-center bg-black/40 p-4 rounded-xl border border-zinc-800 hover:border-[#4a1515] transition mb-2">
-                          <div className="col-span-2">
-                            <p className="text-sm font-bold text-white">{u.username}</p>
-                            <p className="text-xs text-zinc-400 mt-1">{u.email}</p>
-                          </div>
-                          <div><span className={`text-[11px] px-2 py-0.5 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900 text-red-200' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span></div>
-                          <div><span className="text-[#fcd385] font-bold text-sm">{u.points} {t.pts}</span></div>
-                          <div className="flex justify-end gap-2">
-                            
-                            {/* View Detail Button */}
-                            <button onClick={() => setUserDetailModal(u)} className="p-2 bg-zinc-800 rounded text-emerald-400 hover:bg-zinc-700 transition" title="View Details"><Eye className="w-4 h-4"/></button>
-
-                            <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition" title="Edit User"><Edit className="w-4 h-4"/></button>
-                            {u.username !== currentUser.username && (
-                              <button onClick={() => setConfirmModal({
-                                 message: t.confirmDelDesc,
-                                 onConfirm: () => setUsers(users.filter(user => user.username !== u.username))
-                              })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition" title="Delete User"><Trash2 className="w-4 h-4"/></button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                   <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800">
+                     <table className="w-full text-left text-sm text-zinc-300 min-w-[700px]">
+                       <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                          <tr>
+                             <th className="px-4 py-3">User Info</th>
+                             <th className="px-4 py-3">Role</th>
+                             <th className="px-4 py-3">Points Balance</th>
+                             <th className="px-4 py-3 text-right">Actions</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                         {paginatedUsers.length === 0 ? (
+                           <tr><td colSpan={4} className="text-center py-8 text-zinc-500 text-sm">No users found.</td></tr>
+                         ) : paginatedUsers.map(u => (
+                           <tr key={u.username} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                             <td className="px-4 py-3">
+                                <p className="text-sm font-bold text-white">{u.username}</p>
+                                <p className="text-xs text-zinc-400 mt-0.5">{u.email}</p>
+                             </td>
+                             <td className="px-4 py-3">
+                                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${u.role==='admin' ? 'bg-red-900/50 text-red-300 border border-red-800/50' : 'bg-zinc-800 text-zinc-300'}`}>{u.role}</span>
+                             </td>
+                             <td className="px-4 py-3">
+                                <span className="text-[#fcd385] font-bold text-sm bg-[#3e1717] px-3 py-1 rounded-lg border border-[#fcd385]/30 shadow-inner">{u.points} PTS</span>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <div className="flex justify-end gap-2">
+                                 <button onClick={() => setUserDetailModal(u)} className="p-2 bg-zinc-800 rounded text-emerald-400 hover:bg-zinc-700 transition" title="View Details"><Eye className="w-4 h-4"/></button>
+                                 <button onClick={() => {setEditUserForm({...u}); setEditUserRemark(''); setEditUserModal({isOpen: true, mode: 'edit', oldUsername: u.username});}} className="p-2 bg-zinc-800 rounded text-blue-400 hover:bg-zinc-700 transition" title="Edit User"><Edit className="w-4 h-4"/></button>
+                                 {u.username !== currentUser.username && (
+                                   <button onClick={() => setConfirmModal({
+                                      message: t.confirmDelDesc,
+                                      onConfirm: () => setUsers(users.filter(user => user.username !== u.username))
+                                   })} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition" title="Delete User"><Trash2 className="w-4 h-4"/></button>
+                                 )}
+                               </div>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
                    </div>
                    
                    {/* Pagination UI */}
@@ -1512,37 +1547,52 @@ export default function SweetieWorldApp() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    {paginatedHistory.length === 0 ? (
-                       <p className="text-zinc-500 text-sm py-4">No records found.</p>
-                    ) : (
-                      paginatedHistory.map((req, i) => (
-                        <div key={i} className="bg-black/40 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center border border-white/5 gap-3">
-                          <div>
-                            <p className="text-sm font-bold text-white mb-1">User: <span className="text-blue-400">{req.username}</span></p>
-                            <p className="text-xs text-zinc-400 mb-0.5">Provider: {req.provider} | Txn ID: <span className="text-[#fcd385] font-mono">{req.idCode}</span></p>
-                            {req.requestedAmount && <p className="text-[11px] text-emerald-400 font-bold mt-0.5">Req Amount: {req.requestedAmount}</p>}
-                            {req.remark && <p className="text-[11px] text-red-300 mt-1 italic">Reason: {req.remark}</p>}
-                            <p className="text-[10px] text-zinc-500 mt-1">{formatDateTime(req.date)}</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {req.status === 'pending' && <span className="text-[11px] bg-yellow-900/50 text-yellow-400 px-3 py-1 rounded font-bold uppercase">{t.statusPending}</span>}
-                            {req.status === 'approved' && <span className="text-[11px] bg-emerald-900/50 text-emerald-400 px-3 py-1 rounded font-bold uppercase">{t.statusSuccess} (+{req.amount} Pts)</span>}
-                            {req.status === 'rejected' && <span className="text-[11px] bg-red-900/50 text-red-400 px-3 py-1 rounded font-bold uppercase">{t.statusRejected}</span>}
-                            
-                            <button onClick={() => {
-                              setConfirmModal({
-                                message: t.confirmDelDesc,
-                                onConfirm: () => {
-                                   setPointRequests(pointRequests.filter(p => p.id !== req.id));
-                                   showToast(t.msgDeleted);
-                                }
-                              });
-                            }} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
-                          </div>
-                        </div>
-                      ))
-                    )}
+		<div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800">
+                     <table className="w-full text-left text-sm text-zinc-300 min-w-[800px]">
+                       <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                          <tr>
+                             <th className="px-4 py-3">Date</th>
+                             <th className="px-4 py-3">User</th>
+                             <th className="px-4 py-3">Provider / Txn ID</th>
+                             <th className="px-4 py-3 text-right">Amount</th>
+                             <th className="px-4 py-3 text-center">Status</th>
+                             <th className="px-4 py-3 text-right">Action</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                         {paginatedHistory.length === 0 ? (
+                           <tr><td colSpan={6} className="text-center py-8 text-zinc-500 text-sm">No records found.</td></tr>
+                         ) : paginatedHistory.map((req, i) => (
+                           <tr key={i} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                             <td className="px-4 py-3 text-xs whitespace-nowrap">{formatDateTime(req.date)}</td>
+                             <td className="px-4 py-3 font-bold text-blue-400">{req.username}</td>
+                             <td className="px-4 py-3">
+                                <p className="text-xs text-zinc-300">{req.provider}</p>
+                                <p className="text-[11px] text-[#fcd385] font-mono mt-0.5 tracking-wider">{req.idCode}</p>
+                             </td>
+                             <td className="px-4 py-3 text-right font-bold text-emerald-400">
+                                {req.requestedAmount || req.amount}
+                             </td>
+                             <td className="px-4 py-3 text-center">
+                               {req.status === 'pending' && <span className="text-[10px] bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded font-bold uppercase">{t.statusPending}</span>}
+                               {req.status === 'approved' && <span className="text-[10px] bg-emerald-900/50 text-emerald-400 px-2 py-1 rounded font-bold uppercase">{t.statusSuccess} (+{req.amount})</span>}
+                               {req.status === 'rejected' && <div className="flex flex-col items-center gap-1"><span className="text-[10px] bg-red-900/50 text-red-400 px-2 py-1 rounded font-bold uppercase">{t.statusRejected}</span>{req.remark && <span className="text-[9px] text-red-300 italic max-w-[120px] truncate" title={req.remark}>{req.remark}</span>}</div>}
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <button onClick={() => {
+                                 setConfirmModal({
+                                   message: t.confirmDelDesc,
+                                   onConfirm: () => {
+                                      setPointRequests(pointRequests.filter(p => p.id !== req.id));
+                                      showToast(t.msgDeleted);
+                                   }
+                                 });
+                               }} className="p-2 bg-zinc-800 rounded text-red-400 hover:bg-zinc-700 transition"><Trash2 className="w-4 h-4"/></button>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
                   </div>
                   {/* Pagination UI */}
                   {adminFilteredHistory.length > 0 && renderPagination(historyPage, setHistoryPage, historyPerPage, setHistoryPerPage, adminFilteredHistory.length)}
@@ -2045,7 +2095,7 @@ export default function SweetieWorldApp() {
                     
                     <div>
                       <label className="block text-zinc-400 mb-1.5">Point Price (Per Unreleased Ep)</label>
-                      <input type="number" min="0" value={newVideo.pointsPerEp || 20} onChange={e => setNewVideo({...newVideo, pointsPerEp: Number(e.target.value)})} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white focus:outline-none focus:border-[#fcd385]" />
+                      <input type="number" min="0" value={newVideo.pointsPerEp ?? 20} onChange={e => setNewVideo({...newVideo, pointsPerEp: e.target.value === '' ? 0 : Number(e.target.value)})} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white focus:outline-none focus:border-[#fcd385]" />
                     </div>
 
                     <div className="md:col-span-2">
@@ -2072,7 +2122,7 @@ export default function SweetieWorldApp() {
                              newEps.length = epCount;
                           }
                           
-                          setNewVideo({...newVideo, totalEpisodes: epCount, episodes: newEps, pointsPerEp: newVideo.pointsPerEp || 20});
+                          setNewVideo({...newVideo, totalEpisodes: epCount, episodes: newEps, pointsPerEp: newVideo.pointsPerEp ?? 20});
                         }} className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded-lg text-white font-bold transition">{t.genSlots}</button>
                       </div>
                     </div>
@@ -2165,7 +2215,7 @@ export default function SweetieWorldApp() {
                             image: newVideo.image || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=700',
                             category: newVideo.category || categories[0], description: newVideo.description || '', 
                             totalEpisodes: newVideo.totalEpisodes || 1, episodes: newVideo.episodes || [], 
-                            vipTelegramLink: newVideo.vipTelegramLink || '', pointsPerEp: newVideo.pointsPerEp || 20
+                            vipTelegramLink: newVideo.vipTelegramLink || '', pointsPerEp: newVideo.pointsPerEp ?? 20
                           };
                           if (editingShowId) {
   // Update လုပ်လိုက်တဲ့ ဇာတ်ကားကို လက်ရှိနေရာကနေဖယ်ပြီး အပေါ်ဆုံး(ထိပ်ဆုံး)သို့ ပို့ပေးရန်
@@ -2420,7 +2470,12 @@ export default function SweetieWorldApp() {
                              }
 
                              if(isReleased) {
-                                setPlatformSelectModal({ep, show: selectedShow});
+                                // NEW: Link ၁ ခုတည်းဆိုရင် တန်းသွားမည်၊ ၂ ခုနှင့်အထက်မှသာ ရွေးခိုင်းမည်
+                                if (ep.links && ep.links.length === 1) {
+                                   window.open(ep.links[0].url, '_blank');
+                                } else {
+                                   setPlatformSelectModal({ep, show: selectedShow});
+                                }
                              } else {
                                 if (isVipUnlocked) {
                                    if (selectedShow.vipTelegramLink) {
@@ -3066,6 +3121,13 @@ export default function SweetieWorldApp() {
                       setCurrentUser(updatedUser);
                       setVipModalShow(null);
                       showToast(t.msgVipSuccess);
+
+                      // NEW LOGIC: VIP ဝင်ပြီးတာနဲ့ Telegram Private Channel ဆီ တန်းသွားမည်
+                      if (vipModalShow.vipTelegramLink) {
+                         handleGetTelegramLink(vipModalShow.vipTelegramLink);
+                      } else {
+                         showToast("VIP Link မထည့်ရသေးပါ။ Admin သို့ဆက်သွယ်ပါ။");
+                      }
                    } else {
                       setVipModalShow(null); // VIP Box ကို ချက်ချင်းပိတ်မယ်
                       setAlertModal({ 
@@ -3089,6 +3151,174 @@ export default function SweetieWorldApp() {
             )}
           </div>
         </div>
+      )}
+
+      {/* --- NEW: INACTIVE USERS MODAL --- */}
+      {showInactiveUsersModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-red-500/30 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
+             <div className="p-5 border-b border-red-900/50 flex justify-between items-center bg-black/40">
+               <h2 className="text-xl font-black text-red-400 flex items-center gap-2"><Users className="w-5 h-5"/> Inactive Users (30+ Days)</h2>
+               <button onClick={() => {setShowInactiveUsersModal(false); setInactiveUserSearch('');}} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+             </div>
+             
+             {/* Search Bar */}
+             <div className="p-4 border-b border-zinc-800 bg-black/20">
+               <div className="relative w-full max-w-md">
+                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                 <input type="text" placeholder="Search by Username..." value={inactiveUserSearch} onChange={e => setInactiveUserSearch(e.target.value)} className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-red-500" />
+               </div>
+             </div>
+
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+                <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800 shadow-inner">
+                   <table className="w-full text-left text-sm text-zinc-300 min-w-[600px]">
+                     <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                        <tr>
+                           <th className="px-4 py-3">Username</th>
+                           <th className="px-4 py-3">Email</th>
+                           <th className="px-4 py-3 text-right">Points Remaining</th>
+                           <th className="px-4 py-3 text-right">Last Login</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                       {users.filter(u => {
+                          const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                          const isInactive = !(u.lastLoginAt && new Date(u.lastLoginAt) >= thirtyDaysAgo);
+                          const matchSearch = u.username.toLowerCase().includes(inactiveUserSearch.toLowerCase());
+                          return isInactive && matchSearch;
+                       }).sort((a, b) => new Date(a.lastLoginAt || 0).getTime() - new Date(b.lastLoginAt || 0).getTime()).map(u => (
+                         <tr key={u.username} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                           <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline" onClick={() => {
+                               setShowInactiveUsersModal(false);
+                               setInactiveUserSearch('');
+                               setUserDetailModal(u);
+                           }}>{u.username}</td>
+                           <td className="px-4 py-3 text-xs text-zinc-400">{u.email}</td>
+                           <td className="px-4 py-3 text-right text-[#fcd385] font-bold">{u.points} PTS</td>
+                           <td className="px-4 py-3 text-right text-red-400 text-xs">{formatDateTime(u.lastLoginAt || '') || 'Never'}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- NEW: POINTS SPENT HISTORY MODAL --- */}
+      {showPointsSpentModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-purple-500/30 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
+             <div className="p-5 border-b border-purple-900/50 flex justify-between items-center bg-black/40">
+               <h2 className="text-xl font-black text-purple-400 flex items-center gap-2"><ListVideo className="w-5 h-5"/> VIP Unlock History (Points Spent)</h2>
+               <button onClick={() => {setShowPointsSpentModal(false); setPointsSpentSearch('');}} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+             </div>
+             
+             {/* Search Bar */}
+             <div className="p-4 border-b border-zinc-800 bg-black/20">
+               <div className="relative w-full max-w-md">
+                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                 <input type="text" placeholder="Search by Username..." value={pointsSpentSearch} onChange={e => setPointsSpentSearch(e.target.value)} className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500" />
+               </div>
+             </div>
+
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+                <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800 shadow-inner">
+                   <table className="w-full text-left text-sm text-zinc-300 min-w-[700px]">
+                     <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                        <tr>
+                           <th className="px-4 py-3">Date / Time</th>
+                           <th className="px-4 py-3">User</th>
+                           <th className="px-4 py-3">Movie / Series (VIP)</th>
+                           <th className="px-4 py-3 text-right">Points Spent</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                       {users.flatMap(u => 
+                           (u.pointHistory || [])
+                           .filter(log => log.type === 'buy_vip')
+                           .map(log => {
+                               // Find both English and Myanmar titles from `shows` database
+                               const matchedShow = shows.find(s => s.id === log.title || s.title_en === log.title || s.title_mm === log.title);
+                               const displayTitle = matchedShow 
+                                  ? `${matchedShow.title_en || ''} ${matchedShow.title_en && matchedShow.title_mm ? ' / ' : ''} ${matchedShow.title_mm || ''}` 
+                                  : log.title;
+                               return { username: u.username, title: displayTitle, amount: Math.abs(log.amount), date: log.date };
+                           })
+                       )
+                       .filter(log => log.username.toLowerCase().includes(pointsSpentSearch.toLowerCase()))
+                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                       .map((log, idx) => (
+                         <tr key={idx} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                           <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{formatDateTime(log.date)}</td>
+                           <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline" onClick={() => {
+                               setShowPointsSpentModal(false);
+                               setPointsSpentSearch('');
+                               const user = users.find(u => u.username === log.username);
+                               if(user) setUserDetailModal(user);
+                           }}>{log.username}</td>
+                           <td className="px-4 py-3 font-bold text-white">{log.title}</td>
+                           <td className="px-4 py-3 text-right font-bold text-purple-400">-{log.amount} PTS</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- NEW: PAYMENT METHOD DETAIL MODAL --- */}
+      {selectedMethodForDetail && (
+         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
+            <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-blue-500/30 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
+               <div className="p-5 border-b border-blue-900/50 flex justify-between items-center bg-black/40">
+                 <h2 className="text-xl font-black text-blue-400 flex items-center gap-2"><CreditCard className="w-5 h-5"/> Transactions: {selectedMethodForDetail}</h2>
+                 <button onClick={() => setSelectedMethodForDetail(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+               </div>
+               <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+                  <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800 shadow-inner">
+                     <table className="w-full text-left text-sm text-zinc-300 min-w-[600px]">
+                       <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
+                          <tr>
+                             <th className="px-4 py-3">Date</th>
+                             <th className="px-4 py-3">User</th>
+                             <th className="px-4 py-3">Txn ID</th>
+                             <th className="px-4 py-3 text-right">Amount</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                         {pointRequests.filter(req => {
+                            if (req.status !== 'approved' || req.provider !== selectedMethodForDetail) return false;
+                            // Match dashboard's date filters if applied
+                            if (dashDateFrom && dashDateTo) {
+                               const fromD = new Date(dashDateFrom).setHours(0,0,0,0);
+                               const toD = new Date(dashDateTo).setHours(23,59,59,999);
+                               const d = new Date(req.date).getTime();
+                               return d >= fromD && d <= toD;
+                            }
+                            return true;
+                         }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(req => (
+                           <tr key={req.id} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
+                             <td className="px-4 py-3 text-xs text-zinc-400">{formatDateTime(req.date)}</td>
+                             <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline hover:text-blue-300" onClick={() => {
+                                setSelectedMethodForDetail(null);
+                                const user = users.find(u => u.username === req.username);
+                                if (user) setUserDetailModal(user);
+                             }}>{req.username}</td>
+                             <td className="px-4 py-3 font-mono text-[#fcd385]">{req.idCode}</td>
+                             <td className="px-4 py-3 text-right text-emerald-400 font-bold">+{req.amount}</td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                  </div>
+               </div>
+            </div>
+         </div>
       )}
 
     </div>
