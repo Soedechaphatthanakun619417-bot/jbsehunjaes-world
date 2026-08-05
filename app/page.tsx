@@ -290,7 +290,7 @@ export default function SweetieWorldApp() {
 
   // ADMIN STATES
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload'>('dashboard');
+  const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'users' | 'points' | 'history' | 'logs' | 'settings' | 'promo' | 'faq' | 'upload' | 'uploaded_content'>('dashboard');
   const [dashDateFrom, setDashDateFrom] = useState('');
   const [dashDateTo, setDashDateTo] = useState('');
   const [adminUserSearch, setAdminUserSearch] = useState('');
@@ -328,9 +328,13 @@ export default function SweetieWorldApp() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPerPage, setHistoryPerPage] = useState(10);
   const [showsPage, setShowsPage] = useState(1);
-  const [showsPerPage, setShowsPerPage] = useState(10);
+  const [showsPerPage, setShowsPerPage] = useState(12);
   const [adminLogPage, setAdminLogPage] = useState(1);
   const [adminLogPerPage, setAdminLogPerPage] = useState(10);
+  const [pointsSpentPage, setPointsSpentPage] = useState(1);
+  const [pointsSpentPerPage, setPointsSpentPerPage] = useState(10);
+  const [methodDetailPage, setMethodDetailPage] = useState(1);
+  const [methodDetailPerPage, setMethodDetailPerPage] = useState(10);
   
   const [bulkDeleteDateFrom, setBulkDeleteDateFrom] = useState('');
   const [bulkDeleteDateTo, setBulkDeleteDateTo] = useState('');
@@ -794,6 +798,33 @@ export default function SweetieWorldApp() {
   const adminFilteredPromos = promotions.filter(p => (p.title_en?.toLowerCase().includes(adminPromoSearch.toLowerCase()) || p.title_mm?.toLowerCase().includes(adminPromoSearch.toLowerCase())));
   const adminFilteredFaqs = faqs.filter(f => (f.title_en?.toLowerCase().includes(adminFaqSearch.toLowerCase()) || f.title_mm?.toLowerCase().includes(adminFaqSearch.toLowerCase())));
 
+  // NEW: Pre-calculated Paginated Data for Modals
+  const pointsSpentLogs = users.flatMap(u => 
+      (u.pointHistory || [])
+      .filter(log => log.type === 'buy_vip')
+      .map(log => {
+          const matchedShow = shows.find(s => s.id === log.title || s.title_en === log.title || s.title_mm === log.title);
+          const displayTitle = matchedShow 
+            ? `${matchedShow.title_en || ''} ${matchedShow.title_en && matchedShow.title_mm ? ' / ' : ''} ${matchedShow.title_mm || ''}` 
+            : log.title;
+          return { username: u.username, title: displayTitle, amount: Math.abs(log.amount), date: log.date };
+      })
+  ).filter(log => log.username.toLowerCase().includes((pointsSpentSearch || '').toLowerCase()))
+   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const paginatedPointsSpentLogs = pointsSpentLogs.slice((pointsSpentPage - 1) * pointsSpentPerPage, pointsSpentPage * pointsSpentPerPage);
+
+  const methodDetailLogs = pointRequests.filter(req => {
+      if (req.status !== 'approved' || req.provider !== selectedMethodForDetail) return false;
+      if (dashDateFrom && dashDateTo) {
+         const fromD = new Date(dashDateFrom).setHours(0,0,0,0);
+         const toD = new Date(dashDateTo).setHours(23,59,59,999);
+         const d = new Date(req.date).getTime();
+         return d >= fromD && d <= toD;
+      }
+      return true;
+  }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const paginatedMethodDetailLogs = methodDetailLogs.slice((methodDetailPage - 1) * methodDetailPerPage, methodDetailPage * methodDetailPerPage);
+
   const myNotis = notifications.filter(n => n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const unreadNotiCount = myNotis.filter(n => !n.isRead).length;
 
@@ -1143,6 +1174,8 @@ export default function SweetieWorldApp() {
                 <button onClick={() => setAdminActiveTab('promo')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'promo' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Gift className="w-5 h-5"/> {t.adminTabPromo}</button>
                 <button onClick={() => setAdminActiveTab('faq')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'faq' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><HelpCircle className="w-5 h-5"/> {t.adminTabFaq}</button>
                 <button onClick={() => setAdminActiveTab('upload')} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'upload' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><Upload className="w-5 h-5"/> {t.adminTabUpload}</button>
+                {/* NEW MENU ITEM */}
+                <button onClick={() => {syncLatestData(); setAdminActiveTab('uploaded_content');}} className={`w-full text-left px-6 py-3 flex items-center gap-3 text-sm font-bold transition ${adminActiveTab === 'uploaded_content' ? 'text-[#ff9d9d] bg-black/20 border-r-4 border-[#ff9d9d]' : 'text-zinc-300 hover:bg-black/10'}`}><ListVideo className="w-5 h-5"/> {lang === 'en' ? 'Uploaded Content' : 'တင်ထားသော ဇာတ်ကားများ'}</button>
               </nav>
           </aside>
 
@@ -2238,22 +2271,30 @@ export default function SweetieWorldApp() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
 
-                <div className="mt-8 bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                    <h4 className="text-sm font-bold text-[#fcd385]">Uploaded Content</h4>
+            {/* --- NEW SEPARATED TAB: UPLOADED CONTENT --- */}
+            {adminActiveTab === 'uploaded_content' && (
+              <div className="animate-fade-in space-y-6 font-sans">
+                <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{lang === 'en' ? 'Uploaded Content' : 'တင်ထားသော ဇာတ်ကားများ'}</h3>
+                
+                <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 shadow-xl">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
                     <div className="relative w-full sm:w-64">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                       <input 
                         type="text" placeholder="Search by Title..." value={adminUploadedSearch || ''}
                         onChange={e => {setAdminUploadedSearch(e.target.value); setShowsPage(1);}}
-                        className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
+                        className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2.5 rounded-lg text-xs text-white focus:outline-none focus:border-[#fcd385]" 
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  
+                  {/* Changed grid layout for 12 items (4 items per row on Desktop) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                     {paginatedShows.length > 0 ? paginatedShows.map(s => (
-                      <div key={s.id} className="bg-black/50 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
+                      <div key={s.id} className="bg-black/50 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between shadow-lg">
                          <div>
                             <div className="flex gap-3 items-start mb-2">
                               <img src={s.image} alt="Thumb" className="w-16 h-9 object-cover rounded shadow" />
@@ -2266,6 +2307,7 @@ export default function SweetieWorldApp() {
                          </div>
                          <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-zinc-800">
                            <button onClick={() => {
+                             setAdminActiveTab('upload');
                              setEditingShowId(s.id); setNewVideo(s); setEpCount(s.totalEpisodes); window.scrollTo({top:0, behavior: 'smooth'});
                            }} className="bg-blue-900/50 text-blue-300 px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-900 transition flex items-center gap-1"><Edit className="w-3 h-3"/> Edit</button>
                            <button onClick={() => setConfirmModal({
@@ -2275,7 +2317,7 @@ export default function SweetieWorldApp() {
                          </div>
                       </div>
                     )) : (
-                      <p className="text-zinc-500 text-xs py-2">No uploaded shows found.</p>
+                      <p className="text-zinc-500 text-xs py-2 col-span-full text-center">No uploaded shows found.</p>
                     )}
                   </div>
                   {/* Pagination UI */}
@@ -2283,6 +2325,7 @@ export default function SweetieWorldApp() {
                 </div>
               </div>
             )}
+
           </main>
         </div>
 
@@ -3216,15 +3259,14 @@ export default function SweetieWorldApp() {
                <button onClick={() => {setShowPointsSpentModal(false); setPointsSpentSearch('');}} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
              </div>
              
-             {/* Search Bar */}
              <div className="p-4 border-b border-zinc-800 bg-black/20">
                <div className="relative w-full max-w-md">
                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                 <input type="text" placeholder="Search by Username..." value={pointsSpentSearch} onChange={e => setPointsSpentSearch(e.target.value)} className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500" />
+                 <input type="text" placeholder="Search by Username..." value={pointsSpentSearch} onChange={e => {setPointsSpentSearch(e.target.value); setPointsSpentPage(1);}} className="w-full bg-black border border-zinc-700 pl-9 pr-4 py-2 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500" />
                </div>
              </div>
 
-             <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+             <div className="p-5 overflow-y-auto custom-scrollbar flex-1 flex flex-col">
                 <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800 shadow-inner">
                    <table className="w-full text-left text-sm text-zinc-300 min-w-[700px]">
                      <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
@@ -3236,21 +3278,9 @@ export default function SweetieWorldApp() {
                         </tr>
                      </thead>
                      <tbody>
-                       {users.flatMap(u => 
-                           (u.pointHistory || [])
-                           .filter(log => log.type === 'buy_vip')
-                           .map(log => {
-                               // Find both English and Myanmar titles from `shows` database
-                               const matchedShow = shows.find(s => s.id === log.title || s.title_en === log.title || s.title_mm === log.title);
-                               const displayTitle = matchedShow 
-                                  ? `${matchedShow.title_en || ''} ${matchedShow.title_en && matchedShow.title_mm ? ' / ' : ''} ${matchedShow.title_mm || ''}` 
-                                  : log.title;
-                               return { username: u.username, title: displayTitle, amount: Math.abs(log.amount), date: log.date };
-                           })
-                       )
-                       .filter(log => log.username.toLowerCase().includes(pointsSpentSearch.toLowerCase()))
-                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                       .map((log, idx) => (
+                       {paginatedPointsSpentLogs.length === 0 ? (
+                          <tr><td colSpan={4} className="text-center py-8 text-zinc-500 text-sm">No records found.</td></tr>
+                       ) : paginatedPointsSpentLogs.map((log, idx) => (
                          <tr key={idx} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
                            <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{formatDateTime(log.date)}</td>
                            <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline" onClick={() => {
@@ -3266,6 +3296,10 @@ export default function SweetieWorldApp() {
                      </tbody>
                    </table>
                 </div>
+                {/* Pagination For VIP History */}
+                <div className="mt-4">
+                   {pointsSpentLogs.length > 0 && renderPagination(pointsSpentPage, setPointsSpentPage, pointsSpentPerPage, setPointsSpentPerPage, pointsSpentLogs.length)}
+                </div>
              </div>
           </div>
         </div>
@@ -3279,7 +3313,7 @@ export default function SweetieWorldApp() {
                  <h2 className="text-xl font-black text-blue-400 flex items-center gap-2"><CreditCard className="w-5 h-5"/> Transactions: {selectedMethodForDetail}</h2>
                  <button onClick={() => setSelectedMethodForDetail(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
                </div>
-               <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+               <div className="p-5 overflow-y-auto custom-scrollbar flex-1 flex flex-col">
                   <div className="overflow-x-auto bg-black/20 rounded-xl border border-zinc-800 shadow-inner">
                      <table className="w-full text-left text-sm text-zinc-300 min-w-[600px]">
                        <thead className="text-[10px] uppercase bg-black/60 text-zinc-400 border-b border-zinc-800">
@@ -3291,19 +3325,11 @@ export default function SweetieWorldApp() {
                           </tr>
                        </thead>
                        <tbody>
-                         {pointRequests.filter(req => {
-                            if (req.status !== 'approved' || req.provider !== selectedMethodForDetail) return false;
-                            // Match dashboard's date filters if applied
-                            if (dashDateFrom && dashDateTo) {
-                               const fromD = new Date(dashDateFrom).setHours(0,0,0,0);
-                               const toD = new Date(dashDateTo).setHours(23,59,59,999);
-                               const d = new Date(req.date).getTime();
-                               return d >= fromD && d <= toD;
-                            }
-                            return true;
-                         }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(req => (
+                         {paginatedMethodDetailLogs.length === 0 ? (
+                           <tr><td colSpan={4} className="text-center py-8 text-zinc-500 text-sm">No records found.</td></tr>
+                         ) : paginatedMethodDetailLogs.map(req => (
                            <tr key={req.id} className="border-b border-zinc-800/50 hover:bg-white/5 transition">
-                             <td className="px-4 py-3 text-xs text-zinc-400">{formatDateTime(req.date)}</td>
+                             <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{formatDateTime(req.date)}</td>
                              <td className="px-4 py-3 font-bold text-blue-400 cursor-pointer hover:underline hover:text-blue-300" onClick={() => {
                                 setSelectedMethodForDetail(null);
                                 const user = users.find(u => u.username === req.username);
@@ -3315,6 +3341,10 @@ export default function SweetieWorldApp() {
                          ))}
                        </tbody>
                      </table>
+                  </div>
+                  {/* Pagination For Payment Detail */}
+                  <div className="mt-4">
+                     {methodDetailLogs.length > 0 && renderPagination(methodDetailPage, setMethodDetailPage, methodDetailPerPage, setMethodDetailPerPage, methodDetailLogs.length)}
                   </div>
                </div>
             </div>
