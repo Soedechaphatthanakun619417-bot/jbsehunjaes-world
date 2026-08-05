@@ -68,10 +68,15 @@ export async function POST(request: Request) {
         return show;
       });
 
-      // ပြင်ဆင်ပြီးသား Data ကို Database ထဲ Save ခြင်း
+      // ပြင်ဆင်ပြီးသား Data ကို Database ထဲ Save ခြင်း (နှင့် အပေါ်ဆုံးသို့ ရွှေ့ခြင်း)
       if (isUpdated) {
+        const updatedShowIndex = shows.findIndex((s: any) => s.id === movieId);
+        if (updatedShowIndex !== -1) {
+          const updatedShow = shows.splice(updatedShowIndex, 1)[0];
+          shows.unshift(updatedShow); // ဇာတ်ကားကို အပေါ်ဆုံးသို့ ပို့လိုက်ပါပြီ
+        }
         await setDoc(showsRef, { data: shows });
-        console.log(`Auto-linked ${movieId} Episode ${epNumber}`);
+        console.log(`Auto-linked ${movieId} Episode ${epNumber} and moved to top`);
       }
     }
 
