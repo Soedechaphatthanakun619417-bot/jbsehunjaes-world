@@ -2502,7 +2502,19 @@ export default function SweetieWorldApp() {
              {/* Header */}
              <div className="p-5 border-b border-[#fcd385]/20 flex justify-between items-center bg-black/40">
                <h2 className="text-xl font-black text-[#fcd385] flex items-center gap-2"><User className="w-5 h-5"/> User Detail: {userDetailModal.username}</h2>
-               <button onClick={() => setUserDetailModal(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+               <div className="flex items-center gap-4">
+                 {/* NEW: Edit User Button */}
+                 <button onClick={() => {
+                    setEditUserForm({...userDetailModal});
+                    setEditUserRemark('');
+                    setEditUserModal({isOpen: true, mode: 'edit', oldUsername: userDetailModal.username});
+                    setUserDetailModal(null); // Detail Box ကို ခဏပိတ်ပြီး Edit Box ကို ဖွင့်ပေးမည်
+                 }} className="flex items-center gap-1.5 bg-blue-900/40 border border-blue-700/50 hover:border-blue-400 text-blue-400 px-3 py-1.5 rounded-lg transition shadow-lg text-sm font-bold">
+                    <Edit className="w-4 h-4"/> Edit User
+                 </button>
+                 
+                 <button onClick={() => setUserDetailModal(null)} className="text-zinc-400 hover:text-white transition"><X className="w-6 h-6"/></button>
+               </div>
              </div>
 
              {/* Body - Scrollable */}
