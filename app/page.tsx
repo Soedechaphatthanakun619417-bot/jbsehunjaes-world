@@ -2084,12 +2084,24 @@ export default function SweetieWorldApp() {
                             </div>
 
                             <button onClick={() => {
-                                const eps = [...newVideo.episodes!];
-                                if(!eps[idx].links) eps[idx].links = [];
-                                eps[idx].links.push({platform: platforms.length > 0 ? platforms[0] : 'Other', url: ''});
-                                setNewVideo({...newVideo, episodes: eps});
-                            }} className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-3 py-2 rounded font-bold uppercase transition flex items-center gap-1"><Plus className="w-3 h-3"/> Add Link</button>
-                          </div>
+    const eps = [...newVideo.episodes!];
+    if(!eps[idx].links) eps[idx].links = [];
+    eps[idx].links.push({platform: platforms.length > 0 ? platforms[0] : 'Other', url: ''});
+    setNewVideo({...newVideo, episodes: eps});
+}} className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-3 py-2 rounded font-bold uppercase transition flex items-center gap-1"><Plus className="w-3 h-3"/> Add Link</button>
+</div>
+
+{/* AUTO-LINK TAG DISPLAY (NEW) */}
+<div className="w-full flex items-center gap-2 mt-2 bg-blue-900/10 border border-blue-900/30 p-2 rounded-lg">
+  <span className="text-[10px] text-zinc-400 font-bold uppercase">Auto-Link Tag (Telegram တွင်ထည့်ရန်):</span>
+  {editingShowId ? (
+    <code className="text-[11px] text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded font-mono select-all border border-blue-800/50">
+       #{editingShowId}_ep{idx + 1}
+    </code>
+  ) : (
+    <span className="text-[10px] text-yellow-500 italic font-bold">Save Movie First to get Tag!</span>
+  )}
+</div>
                           
                           {/* Links Row Mapping */}
                           {ep.links && ep.links.length > 0 && (
