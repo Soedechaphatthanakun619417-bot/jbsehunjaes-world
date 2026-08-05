@@ -46,7 +46,7 @@ interface ContentItem { id: string; title_en: string; body_en: string; title_mm:
 interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
 interface SocialLink { id: string; platform: string; url: string; logo?: string; }
 interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; socialLinks: SocialLink[]; }
-interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit'; }
+interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit' | 'new_user'; }
 interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
 
 // ------------------------------------------------------------------
@@ -587,12 +587,12 @@ export default function SweetieWorldApp() {
         detail: `Email: ${newUser.email}`,
         date: new Date().toISOString(), 
         isRead: false, 
-        actionType: 'admin_edit'
+        actionType: 'new_user'
       };
       setNotifications([newNoti, ...notifications]);
       // -----------------------------------------------------------
 
-      setUsers([...users, newUser]);
+      setUsers([newUser, ...users]); // အကောင့်သစ်ကို အောက်ဆုံးမပို့ဘဲ အပေါ်ဆုံးရောက်အောင် ပြင်လိုက်ပါသည်
       setCurrentUser(newUser);
       if (rememberMe) localStorage.setItem('jbsehunjaes_auth', newUser.username);
       else localStorage.removeItem('jbsehunjaes_auth');
@@ -729,6 +729,14 @@ export default function SweetieWorldApp() {
      if(n.actionType === 'point_request') { setAdminDashboardOpen(true); setAdminActiveTab('points'); } 
      else if (n.actionType === 'point_approve' || n.actionType === 'point_reject') { syncLatestData(); setPayStep('history'); setPointModalOpen(true); } 
      else if (n.actionType === 'admin_edit') { syncLatestData(); setUserMenuTab('messages'); setUserMenuOpen(true); }
+     else if (n.actionType === 'new_user') {
+        syncLatestData();
+        setAdminDashboardOpen(true);
+        setAdminActiveTab('users');
+        const username = n.message.replace('New User Registered: ', '');
+        const user = users.find(u => u.username === username);
+        if (user) setUserDetailModal(user); // User Detail Box ကို အလိုအလျောက် ဖွင့်ပေးမည်
+     }
   };
 
   const getRequiredPoints = (show: VideoCardData) => {
@@ -760,7 +768,8 @@ export default function SweetieWorldApp() {
     return matchCat && matchSearch;
   });
 
-  const adminFilteredUsers = users.filter(u => u.username.toLowerCase().includes(adminUserSearch.toLowerCase()) || u.email.toLowerCase().includes(adminUserSearch.toLowerCase()));
+  const adminFilteredUsers = users.filter(u => u.username.toLowerCase().includes(adminUserSearch.toLowerCase()) || u.email.toLowerCase().includes(adminUserSearch.toLowerCase()))
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   const paginatedUsers = adminFilteredUsers.slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage);
 
   const adminPendingPoints = pointRequests.filter(p => p.status === 'pending');
