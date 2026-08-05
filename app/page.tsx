@@ -578,6 +578,20 @@ export default function SweetieWorldApp() {
         lastLoginAt: new Date().toISOString(),
         pointHistory: []
       };
+
+      // --- NEW: ADMIN NOTIFICATION (USER အသစ် ဝင်လာကြောင်း အသိပေးမည်) ---
+      const newNoti: NotificationData = {
+        id: Date.now().toString()+'_noti', 
+        targetUser: 'admin',
+        message: `New User Registered: ${newUser.username}`, 
+        detail: `Email: ${newUser.email}`,
+        date: new Date().toISOString(), 
+        isRead: false, 
+        actionType: 'admin_edit'
+      };
+      setNotifications([newNoti, ...notifications]);
+      // -----------------------------------------------------------
+
       setUsers([...users, newUser]);
       setCurrentUser(newUser);
       if (rememberMe) localStorage.setItem('jbsehunjaes_auth', newUser.username);
