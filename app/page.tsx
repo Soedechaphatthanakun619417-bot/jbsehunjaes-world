@@ -217,6 +217,7 @@ const MessageSquareIcon = ({unreadCount}: {unreadCount: number}) => (
 export default function SweetieWorldApp() {
   const [isClient, setIsClient] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataFetched, setIsDataFetched] = useState(false); // NEW: Data အောင်မြင်စွာ ယူပြီးမှ Save ရန် လုံခြုံရေး
   const [lang, setLang] = useState<'mm' | 'en'>('mm');
   const t = TRANSLATIONS[lang];
 
@@ -448,6 +449,9 @@ export default function SweetieWorldApp() {
         await fetchDoc("adminLogs", setAdminLogs, []);
         const providerSnap = await getDoc(doc(db, "SiteData", "paymentProviders"));
         if (providerSnap.exists() && providerSnap.data().data) { setPaymentProviders(providerSnap.data().data); } else { setPaymentProviders(INITIAL_PROVIDERS); }
+        
+        // NEW: Error မတက်ဘဲ အကုန်အောင်မြင်မှသာ True ပြောင်းပေးမည်
+        setIsDataFetched(true); 
       } catch(e) { console.error("Firebase fetch error", e); } finally { setIsInitialLoad(false); }
     };
     loadData();
@@ -511,18 +515,31 @@ export default function SweetieWorldApp() {
     return () => clearInterval(interval);
   }, [isInitialLoad]);
 
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad]);
-  useEffect(() => { if (!isInitialLoad) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "users"), { data: users }); }, [users, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "shows"), { data: shows }); }, [shows, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "categories"), { data: categories }); }, [categories, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "platforms"), { data: platforms }); }, [platforms, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "promotions"), { data: promotions }); }, [promotions, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "faqs"), { data: faqs }); }, [faqs, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "pointRequests"), { data: pointRequests }); }, [pointRequests, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "notifications"), { data: notifications }); }, [notifications, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "adminLogs"), { data: adminLogs }); }, [adminLogs, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "paymentProviders"), { data: paymentProviders }); }, [paymentProviders, isInitialLoad, isDataFetched]);
+  useEffect(() => { if (!isInitialLoad && isDataFetched) setDoc(doc(db, "SiteData", "siteConfig"), { data: siteConfig }); }, [siteConfig, isInitialLoad, isDataFetched]);
 
+  // NEW: Direct Link ဖြင့် ဝင်လာပါက ဇာတ်ကားကို အလိုလို ဖွင့်ပေးမည်
+  useEffect(() => {
+    if (shows.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const showIdFromUrl = urlParams.get('show');
+      if (showIdFromUrl) {
+        const foundShow = shows.find(s => s.id === showIdFromUrl);
+        if (foundShow) {
+          setSelectedShow(foundShow);
+        }
+      }
+    }
+  }, [shows]);
   // ==========================================
   // 4. ACTION HANDLERS
   // ==========================================
@@ -2524,7 +2541,22 @@ export default function SweetieWorldApp() {
       {selectedShow && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md font-sans">
            <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.9)] relative overflow-hidden">
-              <button onClick={() => setSelectedShow(null)} className="absolute top-4 right-4 text-white/50 hover:text-white z-10 bg-black/50 p-1 rounded-full"><X className="w-5 h-5"/></button>
+              
+              {/* NEW: Copy Link Button & Close Button */}
+              <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                 <button onClick={() => {
+                    const directLink = `${window.location.origin}${window.location.pathname}?show=${selectedShow.id}`;
+                    handleCopy(directLink);
+                 }} className="text-white/50 hover:text-white bg-black/50 p-1.5 rounded-full transition" title="Copy Direct Link">
+                    <Link2 className="w-5 h-5"/>
+                 </button>
+                 <button onClick={() => {
+                    setSelectedShow(null);
+                    // Box ပိတ်လိုက်လျှင် URL မှ ?show=... ကို ဖျက်ပေးမည်
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                 }} className="text-white/50 hover:text-white bg-black/50 p-1.5 rounded-full transition"><X className="w-5 h-5"/></button>
+              </div>
+
               <div className="h-48 sm:h-64 relative shrink-0">
                  <img src={selectedShow.image} alt="cover" className="w-full h-full object-cover" />
                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] to-transparent"></div>
