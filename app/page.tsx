@@ -39,7 +39,7 @@ interface VideoCardData { id: string; title_en: string; title_mm: string; image:
 interface UserHistoryLog { id: string; type: 'usage' | 'admin_bonus' | 'buy_vip'; title: string; amount: number; date: string; }
 
 // User Data with createdAt, lastLoginAt, and pointHistory
-interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; createdAt?: string; lastLoginAt?: string; pointHistory?: UserHistoryLog[]; }
+interface UserData { username: string; email: string; password?: string; role: 'admin' | 'user'; points: number; vip: boolean; unlockedShows: string[]; createdAt?: string; lastLoginAt?: string; pointHistory?: UserHistoryLog[]; pointAdjustment?: number | string; }
 
 interface PointRequest { id: string; username: string; idCode: string; provider: string; date: string; status: 'pending' | 'approved' | 'rejected'; amount?: number; requestedAmount?: number; remark?: string; }
 interface ContentItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; }
@@ -690,11 +690,20 @@ export default function SweetieWorldApp() {
 
   const handleAdminSaveUser = () => {
     if (!editUserRemark.trim() && editUserModal.mode === 'edit') return setAlertModal({ message: "လုပ်ဆောင်ရသည့် အကြောင်းရင်း (Remark) ကို ထည့်ပေးပါ။" });
+    
+    // NEW: ရိုက်ထည့်လိုက်သော Point ကို လက်ရှိ Point နှင့် အလိုလိုပေါင်းပေးမည့်စနစ်
+    const adjustment = Number(editUserForm.pointAdjustment) || 0;
+    const finalPoints = editUserForm.points + adjustment;
+
+    // Firebase Error မတက်အောင် pointAdjustment ကို Object ထဲကနေ အပြီးတိုင် ဖယ်ထုတ်လိုက်ပါမည်
+    const { pointAdjustment, ...cleanEditUserForm } = editUserForm;
+
     if (editUserModal.mode === 'create') {
       const exists = users.find(u => u.username.toLowerCase() === editUserForm.username.trim().toLowerCase() || u.email.toLowerCase() === editUserForm.email.trim().toLowerCase());
       if (exists) return setAlertModal({ message: t.msgExists });
       const newUser = {
-         ...editUserForm, 
+         ...cleanEditUserForm, 
+         points: finalPoints, // တွက်ပြီးသား Point ကို သိမ်းမည်
          username: editUserForm.username.trim(), email: editUserForm.email.trim(),
          createdAt: new Date().toISOString(),
          lastLoginAt: new Date().toISOString(),
@@ -705,8 +714,8 @@ export default function SweetieWorldApp() {
       const oldUser = users.find(u => u.username === editUserModal.oldUsername);
       let newPointHistory = oldUser?.pointHistory || [];
       
-      if (oldUser && editUserForm.points !== oldUser.points) {
-         const pointDiff = editUserForm.points - oldUser.points;
+      if (oldUser && finalPoints !== oldUser.points) { // ပြောင်းလဲသွားသော Point ဖြင့် စစ်ဆေးမည်
+         const pointDiff = finalPoints - oldUser.points;
          const newLog: UserHistoryLog = {
             id: Date.now().toString(),
             type: 'admin_bonus',
@@ -718,7 +727,8 @@ export default function SweetieWorldApp() {
       }
 
       const updatedUser = {
-         ...editUserForm, 
+         ...cleanEditUserForm, 
+         points: finalPoints, // တွက်ပြီးသား Point ကို သိမ်းမည်
          username: editUserForm.username.trim(), 
          email: editUserForm.email.trim(),
          pointHistory: newPointHistory
@@ -747,14 +757,20 @@ export default function SweetieWorldApp() {
      else if (n.actionType === 'point_approve' || n.actionType === 'point_reject') { syncLatestData(); setPayStep('history'); setPointModalOpen(true); } 
      else if (n.actionType === 'admin_edit') { syncLatestData(); setUserMenuTab('messages'); setUserMenuOpen(true); }
      else if (n.actionType === 'new_user') {
-        syncLatestData();
-        setAdminDashboardOpen(true);
-        setAdminActiveTab('users');
-        const username = n.message.replace('New User Registered: ', '');
-        const user = users.find(u => u.username === username);
-        if (user) setUserDetailModal(user); // User Detail Box ကို အလိုအလျောက် ဖွင့်ပေးမည်
-     }
-  };
+      syncLatestData();
+      setAdminDashboardOpen(true);
+      setAdminActiveTab('users');
+      const username = n.message.replace('New User Registered: ', '');
+      const user = users.find(u => u.username === username);
+      if (user) setUserDetailModal(user); // User Detail Box ကို အလိုအလျောက် ဖွင့်ပေးမည်
+   }
+   // NEW: ဇာတ်ကားသစ် သို့မဟုတ် အပိုင်းသစ် Noti ကိုနှိပ်လျှင် Inbox ဆီ တိုက်ရိုက်သွားမည်
+   else if (n.actionType === 'new_upload' || n.actionType === 'ep_update') {
+      syncLatestData();
+      setUserMenuTab('messages');
+      setUserMenuOpen(true);
+   }
+};
 
   const getRequiredPoints = (show: VideoCardData) => {
     const unreleasedCount = show.episodes.filter(ep => !ep.links || ep.links.length === 0).length;
@@ -2152,7 +2168,7 @@ export default function SweetieWorldApp() {
                     <div className="md:col-span-2">
                       <label className="block text-zinc-400 mb-1.5">{t.totEps}</label>
                       <div className="flex gap-2">
-                        <input type="number" min="1" value={epCount || 1} onChange={e => setEpCount(Number(e.target.value))} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white flex-1 focus:outline-none focus:border-[#fcd385]" />
+                        <input type="number" min="0" value={epCount ?? 0} onChange={e => setEpCount(e.target.value === '' ? 0 : Number(e.target.value))} className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white flex-1 focus:outline-none focus:border-[#fcd385]" />
                         <button onClick={() => {
                           // PRESERVE EXISTING LINKS LOGIC
                           const existingEps = newVideo.episodes || [];
@@ -2175,9 +2191,9 @@ export default function SweetieWorldApp() {
 
                   </div>
 
-                  {newVideo.episodes && newVideo.episodes.length > 0 && (
+                  {newVideo.episodes && (
                     <div className="mt-8 space-y-4 p-5 rounded-xl border border-zinc-700 bg-black/40">
-                      <h4 className="text-sm font-bold text-[#fcd385] mb-4">Episode Links / Schedule Data</h4>
+                      {newVideo.episodes.length > 0 && <h4 className="text-sm font-bold text-[#fcd385] mb-4">Episode Links / Schedule Data</h4>}
                       {newVideo.episodes.map((ep, idx) => (
                         <div key={idx} className="flex flex-col gap-3 w-full bg-black p-4 rounded-lg border border-zinc-800">
                           
@@ -2260,7 +2276,7 @@ export default function SweetieWorldApp() {
                             title_en: newVideo.title_en || '', title_mm: newVideo.title_mm || '', 
                             image: newVideo.image || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=700',
                             category: newVideo.category || categories[0], description: newVideo.description || '', 
-                            totalEpisodes: newVideo.totalEpisodes || 1, episodes: newVideo.episodes || [], 
+                            totalEpisodes: newVideo.totalEpisodes ?? 0, episodes: newVideo.episodes || [], 
                             vipTelegramLink: newVideo.vipTelegramLink || '', pointsPerEp: newVideo.pointsPerEp ?? 20
                           };
                           if (editingShowId) {
@@ -2572,7 +2588,13 @@ export default function SweetieWorldApp() {
 
                  {/* VIP BANNER SECTION FROM SCREENSHOT */}
                  <div className="mt-8 pt-6 border-t border-zinc-800">
-                    {currentUser?.unlockedShows?.includes(selectedShow.id) ? (
+                    {selectedShow.totalEpisodes === 0 ? (
+                       <div className="p-4 rounded-xl border border-zinc-800 bg-black/50 text-center shadow-inner">
+                          <p className="text-[#fcd385] text-sm font-bold flex items-center justify-center gap-2">
+                             <Clock className="w-5 h-5"/> {lang === 'en' ? 'Coming Soon...' : 'မကြာမီ လာမည်...'}
+                          </p>
+                       </div>
+                    ) : currentUser?.unlockedShows?.includes(selectedShow.id) ? (
                        <div className="p-4 rounded-xl border border-[#fcd385]/50 bg-gradient-to-r from-[#3e1717] to-[#1a0101] flex flex-col sm:flex-row items-center justify-between gap-4">
                           <div>
                             <h4 className="text-[#fcd385] font-black flex items-center gap-2"><Sparkles className="w-5 h-5"/> {t.vipUnlockedTitle}</h4>
@@ -2924,12 +2946,16 @@ export default function SweetieWorldApp() {
                      </button>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-zinc-400 mb-1">{t.pointsInput}</label>
-                    <input type="number" value={editUserForm.points} onChange={e => setEditUserForm({...editUserForm, points: Number(e.target.value)})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 mb-1">Current Points</label>
+                    <input type="number" disabled value={editUserForm.points} className="w-full bg-black/30 border border-zinc-800 p-3 rounded-lg text-zinc-500 text-sm cursor-not-allowed" />
                   </div>
-                  <div className="flex-1">
+                  <div>
+                    <label className="block text-xs font-bold text-[#fcd385] mb-1">Edit Points (+ / -)</label>
+                    <input type="number" placeholder="e.g. 200 or -50" value={editUserForm.pointAdjustment ?? ''} onChange={e => setEditUserForm({...editUserForm, pointAdjustment: e.target.value})} className="w-full bg-black/50 border border-[#fcd385]/50 p-3 rounded-lg text-[#fcd385] font-bold text-sm focus:outline-none focus:border-[#fcd385] placeholder-[#fcd385]/30" />
+                  </div>
+                  <div className="col-span-2">
                     <label className="block text-xs font-bold text-zinc-400 mb-1">{t.role}</label>
                     <select value={editUserForm.role} onChange={e => setEditUserForm({...editUserForm, role: e.target.value as 'admin'|'user'})} className="w-full bg-black/50 border border-zinc-700 p-3 rounded-lg text-white text-sm focus:outline-none focus:border-[#fcd385]">
                       <option value="user">User</option>
