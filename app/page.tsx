@@ -596,6 +596,34 @@ export default function SweetieWorldApp() {
     document.body.removeChild(link);
   };
 
+  // NEW: User Backup ဒေါင်းလုဒ်လုပ်မည့် Function
+  const handleDownloadUsersBackup = () => {
+    if (users.length === 0) return showToast("No users to backup.");
+    const headers = ["Username", "Email", "Password", "Role", "Points", "Registered Date", "Last Login Date"];
+    const csvContent = [
+       headers.join(","),
+       ...users.map(u => [
+          `"${u.username}"`,
+          `"${u.email}"`,
+          `"${u.password || ''}"`,
+          `"${u.role}"`,
+          `"${u.points}"`,
+          `"${formatDateTime(u.createdAt || '')}"`,
+          `"${formatDateTime(u.lastLoginAt || '')}"`
+       ].join(","))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Users_Backup_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("User Backup Downloaded Successfully!");
+  };
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -1412,7 +1440,12 @@ export default function SweetieWorldApp() {
 
             {adminActiveTab === 'users' && (
               <div className="animate-fade-in space-y-6">
-                 <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.userMgmt}</h3>
+                 <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-white border-l-4 border-[#fcd385] pl-3">{t.userMgmt}</h3>
+                    <button onClick={handleDownloadUsersBackup} className="flex items-center gap-1.5 text-xs bg-blue-900/40 border border-blue-700/50 hover:border-blue-400 text-blue-400 px-3 py-2 rounded-lg transition shadow-lg">
+                        <Download className="w-4 h-4" /> Backup Data (Excel)
+                    </button>
+                 </div>
                  <div className="bg-[#1f1f1f] p-5 rounded-2xl border border-zinc-800 overflow-x-auto font-sans">
                    
                    {/* User Search & Add User Section */}
