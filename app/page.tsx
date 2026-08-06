@@ -1091,7 +1091,7 @@ export default function SweetieWorldApp() {
                    <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-12 sm:mt-1 w-auto sm:w-[320px] max-h-[70vh] sm:max-h-[80vh] bg-[#1a1a1a] border border-[#fcd385]/30 shadow-2xl rounded-2xl z-[200] flex flex-col overflow-hidden animate-fade-in mx-auto">
                       <div className="p-4 border-b border-zinc-800 bg-[#161616] flex justify-between items-center">
                         <h4 className="font-bold text-[#fcd385] flex items-center gap-2"><Bell className="w-4 h-4"/> {t.notifications}</h4>
-                        {myNotis.length > 0 && <button onClick={() => setNotifications(notifications.map(n => (n.targetUser === currentUser.username || (currentUser.role==='admin'&&n.targetUser==='admin')) ? {...n, isRead: true} : n))} className="text-[10px] text-zinc-400 hover:text-white transition">{t.markAllRead}</button>}
+                        {myNotis.length > 0 && <button onClick={() => setNotifications(notifications.map(n => (n.targetUser === 'all' || n.targetUser === currentUser.username || (currentUser.role === 'admin' && n.targetUser === 'admin')) ? { ...n, isRead: true } : n))} className="text-[10px] text-zinc-400 hover:text-white transition">{t.markAllRead}</button>}
                       </div>
                       <div className="flex-1 overflow-y-auto max-h-[300px] custom-scrollbar">
                          {myNotis.length === 0 ? <p className="text-xs text-zinc-500 text-center py-6">{t.noNoti}</p> : myNotis.map(n => (
@@ -1194,12 +1194,15 @@ export default function SweetieWorldApp() {
              ) : (
                // INBOX TAB
                <div className="flex flex-col h-full bg-[#161616]">
-                  <div className="flex items-center gap-3 p-4 border-b border-zinc-800 bg-[#1a1a1a]">
-                    <button onClick={() => setUserMenuTab('menu')} className="p-1 rounded text-zinc-400 hover:text-white transition bg-black/50"><ChevronLeft className="w-5 h-5"/></button>
-                    <h3 className="font-bold text-[#fcd385] flex items-center gap-2"><Mail className="w-4 h-4"/> {t.inbox}</h3>
+                  <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-[#1a1a1a]">
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setUserMenuTab('menu')} className="p-1 rounded text-zinc-400 hover:text-white transition bg-black/50"><ChevronLeft className="w-5 h-5"/></button>
+                      <h3 className="font-bold text-[#fcd385] flex items-center gap-2"><Mail className="w-4 h-4"/> {t.inbox}</h3>
+                    </div>
+                    {myNotis.length > 0 && <button onClick={() => setNotifications(notifications.map(n => (n.targetUser === 'all' || n.targetUser === currentUser.username || (currentUser.role === 'admin' && n.targetUser === 'admin')) ? { ...n, isRead: true } : n))} className="text-[10px] text-zinc-400 hover:text-white transition">{t.markAllRead}</button>}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-                     {myNotis.filter(n => n.targetUser === currentUser.username).length === 0 ? <p className="text-zinc-500 text-xs text-center py-6">{t.noNoti}</p> : myNotis.filter(n => n.targetUser === currentUser.username).map(n => (
+                     {myNotis.length === 0 ? <p className="text-zinc-500 text-xs text-center py-6">{t.noNoti}</p> : myNotis.map(n => (
                        <div key={n.id} className={`p-4 rounded-xl border flex flex-col gap-2 shadow-inner transition ${n.isRead ? 'bg-[#1f1f1f] border-zinc-800' : 'bg-[#2b0303] border-[#fcd385]/30'}`} onClick={() => { if(!n.isRead) setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x)) }}>
                           <div className="flex justify-between items-start gap-2">
                              <p className={`text-xs ${n.isRead ? 'text-zinc-300' : 'text-white font-bold'}`}>{n.message}</p>
