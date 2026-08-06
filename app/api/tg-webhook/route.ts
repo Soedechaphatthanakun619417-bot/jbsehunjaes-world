@@ -70,12 +70,31 @@ export async function POST(request: Request) {
 
       // ပြင်ဆင်ပြီးသား Data ကို Database ထဲ Save ခြင်း (နှင့် အပေါ်ဆုံးသို့ ရွှေ့ခြင်း)
       if (isUpdated) {
+        let updatedTitle = "";
         const updatedShowIndex = shows.findIndex((s: any) => s.id === movieId);
         if (updatedShowIndex !== -1) {
+          updatedTitle = shows[updatedShowIndex].title_mm || shows[updatedShowIndex].title_en || 'ဇာတ်ကား';
           const updatedShow = shows.splice(updatedShowIndex, 1)[0];
           shows.unshift(updatedShow); // ဇာတ်ကားကို အပေါ်ဆုံးသို့ ပို့လိုက်ပါပြီ
         }
         await setDoc(showsRef, { data: shows });
+
+        // --- NEW: SEND NOTIFICATION TO ALL USERS FOR EPISODE UPDATE ---
+        const notiRef = doc(db, "SiteData", "notifications");
+        const notiSnap = await getDoc(notiRef);
+        if (notiSnap.exists()) {
+           const notis = notiSnap.data().data || [];
+           const newNoti = {
+             id: Date.now().toString()+'_noti',
+             targetUser: 'all',
+             message: `"${updatedTitle}" ဇာတ်လမ်းရဲ့ အပိုင်း ${epNumber} အား တင်ပေးလိုက်ပါပြီ။`,
+             date: new Date().toISOString(),
+             isRead: false,
+             actionType: 'ep_update'
+           };
+           await setDoc(notiRef, { data: [newNoti, ...notis] });
+        }
+
         console.log(`Auto-linked ${movieId} Episode ${epNumber} and moved to top`);
       }
     }

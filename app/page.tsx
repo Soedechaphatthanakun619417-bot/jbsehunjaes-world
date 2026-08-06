@@ -46,7 +46,7 @@ interface ContentItem { id: string; title_en: string; body_en: string; title_mm:
 interface PromoItem { id: string; title_en: string; body_en: string; title_mm: string; body_mm: string; image?: string; }
 interface SocialLink { id: string; platform: string; url: string; logo?: string; }
 interface SiteConfig { marqueeEn: string; marqueeMm: string; depositGuideEn: string; depositGuideMm: string; paymentWarningEn: string; paymentWarningMm: string; socialLinks: SocialLink[]; }
-interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit' | 'new_user'; }
+interface NotificationData { id: string; targetUser: string; message: string; detail?: string; date: string; isRead: boolean; actionType: 'point_request' | 'point_approve' | 'point_reject' | 'admin_edit' | 'new_user' | 'new_upload' | 'ep_update'; }
 interface AdminLogData { id: string; adminName: string; targetUser: string; action: string; remark: string; date: string; }
 
 // ------------------------------------------------------------------
@@ -266,6 +266,8 @@ export default function SweetieWorldApp() {
   const [inactiveUserSearch, setInactiveUserSearch] = useState('');
   const [pointsSpentSearch, setPointsSpentSearch] = useState('');
   const [selectedMethodForDetail, setSelectedMethodForDetail] = useState<string | null>(null);
+  // NEW: Promotion Popup State
+  const [showWelcomePromo, setShowWelcomePromo] = useState(false);
 
   // PAYMENT STATES
   const [pointModalOpen, setPointModalOpen] = useState(false);
@@ -611,6 +613,8 @@ export default function SweetieWorldApp() {
       setAuthModalOpen(false);
       setAuthForm({ username: '', email: '', password: '' });
       setShowAuthPassword(false);
+      // NEW: Register ပြီးတာနဲ့ Promo Popup ပြမည်
+      setShowWelcomePromo(true);
     } else if (authMode === 'login') {
       const inputUsernameOrEmail = authForm.username.trim().toLowerCase();
       const user = users.find(u => 
@@ -628,6 +632,8 @@ export default function SweetieWorldApp() {
         setAuthModalOpen(false);
         setAuthForm({ username: '', email: '', password: '' });
         setShowAuthPassword(false);
+        // NEW: Login ဝင်ပြီးတာနဲ့ Promo Popup ပြမည်
+        setShowWelcomePromo(true);
       } else {
         setAuthError(t.msgWrong);
       }
@@ -825,7 +831,7 @@ export default function SweetieWorldApp() {
   }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const paginatedMethodDetailLogs = methodDetailLogs.slice((methodDetailPage - 1) * methodDetailPerPage, methodDetailPage * methodDetailPerPage);
 
-  const myNotis = notifications.filter(n => n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const myNotis = notifications.filter(n => n.targetUser === 'all' || n.targetUser === currentUser?.username || (currentUser?.role === 'admin' && n.targetUser === 'admin')).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const unreadNotiCount = myNotis.filter(n => !n.isRead).length;
 
   // DERIVED DATA FOR USER DETAIL HISTORY
@@ -834,11 +840,18 @@ export default function SweetieWorldApp() {
       const userReqs = pointRequests.filter(p => p.username === userDetailModal.username).map(r => ({
           id: r.id, date: r.date, type: 'Deposit', paymentType: r.provider, txnId: r.idCode, amount: r.amount || r.requestedAmount, status: r.status, remark: r.remark
       }));
-      const userBonus = (userDetailModal.pointHistory || []).map(b => ({
-          id: b.id, date: b.date, 
-          type: b.type === 'admin_bonus' ? 'Admin Adjustment' : b.type === 'buy_vip' ? 'Buy VIP' : 'Usage',
-          paymentType: 'System', txnId: 'N/A', amount: b.amount, status: 'approved', remark: b.title
-      }));
+      const userBonus = (userDetailModal.pointHistory || []).map(b => {
+          let displayTitle = b.title;
+          if (b.type === 'buy_vip') {
+              const matchedShow = shows.find(s => s.id === b.title || s.title_en === b.title || s.title_mm === b.title);
+              if (matchedShow) displayTitle = matchedShow.title_mm || matchedShow.title_en || b.title;
+          }
+          return {
+              id: b.id, date: b.date, 
+              type: b.type === 'admin_bonus' ? 'Admin Adjustment' : b.type === 'buy_vip' ? 'Buy VIP' : 'Usage',
+              paymentType: 'System', txnId: 'N/A', amount: b.amount, status: 'approved', remark: displayTitle
+          };
+      });
       combinedHistory = [...userReqs, ...userBonus].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       if (userDetailSearch) {
@@ -2256,6 +2269,18 @@ export default function SweetieWorldApp() {
   setEditingShowId(null);
 } else {
   setShows([itemToSave, ...shows]);
+  // --- NEW: NOTIFY ALL USERS ON NEW MOVIE ---
+  const newTitle = itemToSave.title_mm || itemToSave.title_en;
+  const newNoti: NotificationData = {
+     id: Date.now().toString()+'_noti',
+     targetUser: 'all',
+     message: `"${newTitle}" ဇာတ်လမ်းသစ် တင်လိုက်ပါပြီ။`,
+     date: new Date().toISOString(),
+     isRead: false,
+     actionType: 'new_upload'
+  };
+  setNotifications([newNoti, ...notifications]);
+  // ------------------------------------------
 }
                           showToast(t.msgUploaded); 
                           setNewVideo({episodes:[], title_en: '', title_mm: '', vipTelegramLink: '', pointsPerEp: 20});
@@ -2704,7 +2729,7 @@ export default function SweetieWorldApp() {
                              <td className="px-4 py-3 text-center">
                                <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${h.status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' : h.status === 'rejected' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>{h.status}</span>
                              </td>
-                             <td className="px-4 py-3 max-w-[200px] truncate" title={h.remark || '-'}>{h.remark || '-'}</td>
+                             <td className="px-4 py-3 min-w-[250px] whitespace-pre-wrap break-words leading-relaxed" title={h.remark || '-'}>{h.remark || '-'}</td>
                            </tr>
                          ))}
                        </tbody>
@@ -3148,7 +3173,7 @@ export default function SweetieWorldApp() {
                       const newLog: UserHistoryLog = {
                          id: Date.now().toString(),
                          type: 'buy_vip',
-                         title: vipModalShow.title_en || vipModalShow.title_mm || 'VIP Unlock',
+                         title: vipModalShow.title_mm || vipModalShow.title_en || 'VIP Unlock',
                          amount: -cost,
                          date: new Date().toISOString()
                       };
@@ -3349,6 +3374,42 @@ export default function SweetieWorldApp() {
                </div>
             </div>
          </div>
+      )}
+
+      {/* --- NEW: WELCOME PROMO MODAL --- */}
+      {showWelcomePromo && promotions.length > 0 && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans animate-fade-in">
+          <div className="bg-gradient-to-b from-[#2b0303] to-[#161616] border border-[#fcd385]/30 rounded-2xl w-full max-w-sm relative shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden">
+             <button onClick={() => setShowWelcomePromo(false)} className="absolute top-3 right-3 text-white/50 hover:text-white bg-black/50 p-1 rounded-full z-10"><X className="w-5 h-5"/></button>
+             
+             {(() => {
+                const latestPromo = promotions[promotions.length - 1]; // နောက်ဆုံးတင်ထားသော Promotion ကိုယူမည်
+                return (
+                  <div className="flex flex-col">
+                     {latestPromo.image ? (
+                       <img src={latestPromo.image} alt="Promo" className="w-full h-48 object-cover border-b border-[#fcd385]/20" />
+                     ) : (
+                       <div className="w-full h-32 bg-[#3e1717] flex items-center justify-center border-b border-[#fcd385]/20">
+                          <Gift className="w-12 h-12 text-[#fcd385]" />
+                       </div>
+                     )}
+                     <div className="p-6 text-center">
+                       <h3 className="text-xl font-black text-[#fcd385] mb-2">{lang === 'en' ? (latestPromo.title_en || latestPromo.title_mm) : (latestPromo.title_mm || latestPromo.title_en)}</h3>
+                       <p className="text-sm text-zinc-300 mb-6 line-clamp-3 leading-relaxed">{lang === 'en' ? (latestPromo.body_en || latestPromo.body_mm) : (latestPromo.body_mm || latestPromo.body_en)}</p>
+                       <button onClick={() => {
+                          setShowWelcomePromo(false); // Box ကို ပိတ်မည်
+                          setActiveTab('promo'); // Promo Menu ဆီကို ပြောင်းပေးမည်
+                          setAdminDashboardOpen(false); // Admin Panel ပွင့်နေရင် ပိတ်ပေးမည်
+                          window.scrollTo({top:0, behavior: 'smooth'}); // အပေါ်ဆုံးသို့ ပြန်ရွှေ့ပေးမည်
+                       }} className="w-full bg-gradient-to-r from-[#fcd385] to-[#d4af37] text-[#3e1717] font-black py-3 rounded-xl shadow-[0_4px_0_#a88621] active:shadow-none active:translate-y-1 transition-all">
+                          {lang === 'en' ? 'View Details' : 'အသေးစိတ် ကြည့်ရန်'}
+                       </button>
+                     </div>
+                  </div>
+                );
+             })()}
+          </div>
+        </div>
       )}
 
     </div>
