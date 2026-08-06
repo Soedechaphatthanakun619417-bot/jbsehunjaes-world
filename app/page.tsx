@@ -471,13 +471,9 @@ export default function SweetieWorldApp() {
         setCurrentUser(found);
       } else {
         localStorage.removeItem('jbsehunjaes_auth');
-        // အကောင့်မရှိတော့ရင် Login Box ပြရန်
-        if (!authModalOpen) setAuthModalOpen(true);
       }
-    } else if (!savedUser && !currentUser) {
-      // Website ထဲစဝင်ဝင်ချင်း အကောင့်မဝင်ထားရင် Login Box ပြရန်
-      if (!authModalOpen) setAuthModalOpen(true);
-    }
+    } 
+    // Login Box ကို အလိုအလျောက် ပေါ်မလာစေရန် ဖြုတ်ထားပါသည်
   }, [isInitialLoad]); // users ကို dependency ကနေ ဖြုတ်ထားပါတယ် (ခဏခဏ Box မပေါ်စေဖို့ပါ)
 
   const syncLatestData = async () => {
