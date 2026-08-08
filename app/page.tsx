@@ -805,9 +805,23 @@ export default function SweetieWorldApp() {
       const user = users.find(u => u.username === username);
       if (user) setUserDetailModal(user); // User Detail Box ကို အလိုအလျောက် ဖွင့်ပေးမည်
    }
-   // NEW: ဇာတ်ကားသစ် သို့မဟုတ် အပိုင်းသစ် Noti ကိုနှိပ်လျှင် Inbox ဆီ တိုက်ရိုက်သွားမည်
+   // NEW: ဇာတ်ကားသစ် သို့မဟုတ် အပိုင်းသစ် Noti ကိုနှိပ်လျှင် ဇာတ်ကားဆီ တိုက်ရိုက်သွားမည်
    else if (n.actionType === 'new_upload' || n.actionType === 'ep_update') {
       syncLatestData();
+      // Noti စာသားထဲမှ " " ကြားရှိ ဇာတ်ကားနာမည်ကို ဆွဲထုတ်မည်
+      const match = n.message.match(/"([^"]+)"/);
+      if (match) {
+         const title = match[1];
+         const foundShow = shows.find(s => s.title_mm === title || s.title_en === title);
+         if (foundShow) {
+            setAdminDashboardOpen(false); // Admin Panel ပွင့်နေရင် ပိတ်မည်
+            setActiveTab('home'); // Home Tab သို့ ပြောင်းမည်
+            setSelectedShow(foundShow); // ဇာတ်ကား Box ကို ဖွင့်မည်
+            window.scrollTo({top:0, behavior: 'smooth'});
+            return;
+         }
+      }
+      // ဇာတ်ကားကို ရှာမတွေ့ပါက (သို့မဟုတ် ဖျက်လိုက်မိပါက) ပုံမှန်အတိုင်း Inbox ကိုသာ ပြမည်
       setUserMenuTab('messages');
       setUserMenuOpen(true);
    }
